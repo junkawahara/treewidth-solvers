@@ -1,53 +1,55 @@
 # Isawa - Treewidth Solver Benchmark Suite
 
-複数の公開されている treewidth ソルバーを統一的なインターフェースでベンチマーク比較するためのツールキットです。
+[日本語版 / Japanese](README_ja.md)
 
-## 前提条件
+A toolkit for benchmarking multiple publicly available treewidth solvers through a unified interface.
 
-必須:
+## Prerequisites
+
+Required:
 - Python 3.8+
 - Git
 
-ソルバーごとの依存:
-- **Java ソルバー** (twalgor-tw, twalgor-rtw, tamaki-2017, tamaki-2016, jdrasil): JDK 8+
-- **C++ ソルバー** (tdlib-p17, flowcutter-17, htd, minfill-mrs, minfillbg-mrs): GCC 4.8+, CMake (htd のみ)
+Per-solver dependencies:
+- **Java solvers** (twalgor-tw, twalgor-rtw, tamaki-2017, tamaki-2016, jdrasil): JDK 8+
+- **C++ solvers** (tdlib-p17, flowcutter-17, htd, minfill-mrs, minfillbg-mrs): GCC 4.8+, CMake (htd only), Boost (tdlib-p17 only), autotools (tdlib-p17 only)
 - **QuickBB**: GCC, autotools (autoconf, automake)
 - **TreeWidthSolver.jl**: Julia 1.6+
 
-## クイックスタート
+## Quick Start
 
 ```bash
-# 1. 利用可能なソルバーとベンチマークの一覧
+# 1. List available solvers and benchmarks
 python setup.py --list
 
-# 2. 全てセットアップ (ダウンロード + ビルド)
+# 2. Set up everything (download + build)
 python setup.py --all
 
-# 3. 特定のソルバーだけセットアップ
+# 3. Set up specific solvers only
 python setup.py --solver flowcutter-17 --solver tamaki-2017
 
-# 4. ベンチマークだけダウンロード
+# 4. Download benchmarks only
 python setup.py --benchmarks-only
 
-# 5. ベンチマーク実行
+# 5. Run benchmarks
 python run.py --solver all --benchmark pace2017-instances --timeout 300
 
-# 6. 特定のソルバーで実行
+# 6. Run with a specific solver
 python run.py --solver flowcutter-17 --benchmark pace2017-instances --timeout 60
 
-# 7. 並列実行
+# 7. Parallel execution
 python run.py --solver all --benchmark all --timeout 300 --jobs 4
 
-# 8. クイックテスト (各ベンチマークから最大5インスタンス)
+# 8. Quick test (max 5 instances per benchmark set)
 python run.py --solver all --benchmark all --timeout 60 --max-instances 5
 ```
 
-## ソルバー一覧
+## Solvers
 
-### 厳密ソルバー (Exact)
+### Exact Solvers
 
-| 名前 | 著者 | 言語 | 説明 |
-|------|------|------|------|
+| Name | Author(s) | Language | Description |
+|------|-----------|----------|-------------|
 | twalgor-tw | Hisao Tamaki | Java | Heuristic computation of exact treewidth (2022) |
 | twalgor-rtw | Hisao Tamaki | Java | Contraction-recursive algorithm (2023) |
 | tamaki-2017 | Tamaki et al. | Java | PACE 2017 exact track winner |
@@ -57,33 +59,33 @@ python run.py --solver all --benchmark all --timeout 60 --max-instances 5
 | quickbb | Gogate, Dechter | C++ | Branch-and-bound exact solver |
 | treewidth-solver-jl | ArrogantGao | Julia | Bouchitte-Todinca algorithm (Julia) |
 
-### ヒューリスティックソルバー (Heuristic)
+### Heuristic Solvers
 
-| 名前 | 著者 | 言語 | 説明 |
-|------|------|------|------|
+| Name | Author(s) | Language | Description |
+|------|-----------|----------|-------------|
 | flowcutter-17 | Ben Strasser | C++ | Nested dissection via max-flow (PACE 2016/2017) |
 | htd | Abseher et al. | C++ | Hypertree/tree decomposition library (TU Wien) |
-| minfill-mrs | Jégou et al. | C++ | Min-fill heuristic with restarts |
-| minfillbg-mrs | Jégou et al. | C++ | Min-fill with bipartite graph improvements |
+| minfill-mrs | Jegou et al. | C++ | Min-fill heuristic with restarts |
+| minfillbg-mrs | Jegou et al. | C++ | Min-fill with bipartite graph improvements |
 
-**注**: tamaki-2017, tdlib-p17, jdrasil は exact と heuristic の両方に対応しています。
+**Note**: tamaki-2017, tdlib-p17, and jdrasil support both exact and heuristic modes.
 
-## ベンチマーク一覧
+## Benchmarks
 
-| 名前 | 出典 | 説明 |
-|------|------|------|
-| pace2017-instances | PACE 2017 | 公式コンペティションインスタンス |
-| pace2017-bonus | PACE 2017 | 追加の難問インスタンス |
-| pace2016-testbed | PACE 2016 | 2016年テストベッド一式 |
-| named-graphs | Lukas Larisch | 名前付きグラフ集 (Petersen, Hoffman 等) |
-| control-flow-graphs | Lukas Larisch | コンパイル済みプログラムのCFG |
-| uai2014-graphs | PACE / UAI 2014 | 確率推論コンペのグラフ |
-| transit-graphs | Johannes Fichte | 交通ネットワーク |
-| road-graphs | Ben Strasser | 道路ネットワーク |
+| Name | Source | Description |
+|------|--------|-------------|
+| pace2017-instances | PACE 2017 | Official competition instances |
+| pace2017-bonus | PACE 2017 | Extra challenging bonus instances |
+| pace2016-testbed | PACE 2016 | 2016 testbed (instances + tools) |
+| named-graphs | Lukas Larisch | Named graph collection (Petersen, Hoffman, etc.) |
+| control-flow-graphs | Lukas Larisch | Control flow graphs from compiled programs |
+| uai2014-graphs | PACE / UAI 2014 | Graphs from probabilistic inference competition |
+| transit-graphs | Johannes Fichte | Transit/transportation networks |
+| road-graphs | Ben Strasser | Road networks |
 
-## 結果の形式
+## Output Format
 
-結果は CSV で出力されます (`results/` ディレクトリ):
+Results are written as CSV files to the `results/` directory:
 
 ```
 solver,benchmark_set,instance,vertices,edges,treewidth,time_sec,status,memory_mb
@@ -91,24 +93,24 @@ flowcutter-17,pace2017-instances,ex001,100,250,12,0.523,ok,
 tamaki-2017,pace2017-instances,ex001,100,250,12,1.234,ok,
 ```
 
-## PACE .gr フォーマット
+## PACE .gr Format
 
-入力グラフの標準形式:
+Standard input format for graphs:
 
 ```
-c コメント (省略可)
-p tw <頂点数> <辺数>
+c comment (optional)
+p tw <num_vertices> <num_edges>
 <u> <v>
 ```
 
-頂点は 1-indexed です。
+Vertices are 1-indexed.
 
-## ライセンス
+## License
 
-各ソルバーは個別のライセンスに従います。詳細は各ソルバーのリポジトリを参照してください。
+Each solver is subject to its own license. See the respective solver repositories for details.
 
-## 参考リンク
+## References
 
 - [PACE Challenge](https://pacechallenge.org/)
 - [PACE Treewidth Collection](https://github.com/PACE-challenge/Treewidth)
-- [td-validate (検証ツール)](https://github.com/holgerdell/td-validate)
+- [td-validate (validation tool)](https://github.com/holgerdell/td-validate)
