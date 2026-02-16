@@ -123,7 +123,7 @@
       "./configure",
       "make"
     ],
-    "run_command": "./quickbb --min-fill-ordering --time {timeout} --cnffile {input}",
+    "run_command": "./src/quickbb --min-fill-ordering --time {timeout} --cnffile {input}",
     "run_mode": "file",
     "input_format": "quickbb_cnf",
     "output_format": "quickbb",
@@ -188,7 +188,7 @@
     "build_steps": [
       "make"
     ],
-    "run_command": "./tw-heuristic < {input}",
+    "run_command": "./minfill_mrs < {input}",
     "run_mode": "stdin_stdout_signal",
     "input_format": "pace_gr",
     "output_format": "pace_td",
@@ -204,7 +204,7 @@
     "build_steps": [
       "make"
     ],
-    "run_command": "./tw-heuristic < {input}",
+    "run_command": "./minfillbg_mrs < {input}",
     "run_mode": "stdin_stdout_signal",
     "input_format": "pace_gr",
     "output_format": "pace_td",

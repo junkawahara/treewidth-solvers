@@ -75,8 +75,9 @@ def parse_td_output(text):
                 "n_bags": n_bags,
                 "n_vertices": n_vertices,
             }
-        # twalgor-rtw .twc format: "c width <w>"
-        if line.startswith("c width "):
-            parts = line.split()
-            return {"treewidth": int(parts[2])}
+        # "c width <w>" (twalgor-rtw) or "c width = <w>" (tamaki-2016)
+        if line.startswith("c width"):
+            nums = [x for x in line.split() if x.isdigit()]
+            if nums:
+                return {"treewidth": int(nums[0])}
     return None
