@@ -162,6 +162,14 @@ def run_solver(solver_name, input_path, timeout=300, use_heuristic=False):
             if os.path.exists(td_file.name) and os.path.getsize(td_file.name) > 0:
                 with open(td_file.name) as f:
                     stdout = f.read()
+            # Also check for solver-specific output files (e.g. twalgor-rtw .twc)
+            for ext in [".twc", ".td"]:
+                alt = os.path.join(tempfile.gettempdir(), iname + ext)
+                if os.path.exists(alt) and os.path.getsize(alt) > 0:
+                    with open(alt) as f:
+                        stdout = f.read()
+                    cleanup_files.append(alt)
+                    break
 
         else:
             with open(input_path) as fin:
