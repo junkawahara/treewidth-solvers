@@ -107,7 +107,37 @@ Vertices are 1-indexed.
 
 ## License
 
-Each solver is subject to its own license. See the respective solver repositories for details.
+This repository does not redistribute any solver or benchmark source code. All external code is downloaded at setup time via `git clone`. Each solver and benchmark set is subject to its own license:
+
+### Solver Licenses
+
+| Solver | License | Repository |
+|--------|---------|------------|
+| twalgor-tw | GPL-3.0 | [twalgor/tw](https://github.com/twalgor/tw) |
+| twalgor-rtw | GPL-3.0 | [twalgor/RTW](https://github.com/twalgor/RTW) |
+| tamaki-2017 | MIT | [TCS-Meiji/PACE2017-TrackA](https://github.com/TCS-Meiji/PACE2017-TrackA) |
+| tamaki-2016 | MIT | [TCS-Meiji/treewidth-exact](https://github.com/TCS-Meiji/treewidth-exact) |
+| tdlib-p17 | Not specified | [freetdi/p17](https://github.com/freetdi/p17) |
+| jdrasil | MIT | [maxbannach/Jdrasil](https://github.com/maxbannach/Jdrasil) |
+| quickbb | GPL-2.0 | [dechterlab/quickbb](https://github.com/dechterlab/quickbb) |
+| treewidth-solver-jl | MIT | [ArrogantGao/TreeWidthSolver.jl](https://github.com/ArrogantGao/TreeWidthSolver.jl) |
+| flowcutter-17 | BSD-2-Clause | [kit-algo/flow-cutter-pace17](https://github.com/kit-algo/flow-cutter-pace17) |
+| htd | GPL-3.0 | [mabseher/htd](https://github.com/mabseher/htd) |
+| minfill-mrs | GPL-3.0 | [td-mrs/minfill_mrs](https://github.com/td-mrs/minfill_mrs) |
+| minfillbg-mrs | GPL-3.0 | [td-mrs/minfillbg_mrs](https://github.com/td-mrs/minfillbg_mrs) |
+
+### Benchmark Licenses
+
+| Benchmark | License | Repository |
+|-----------|---------|------------|
+| pace2017-instances | CC | [PACE-challenge/Treewidth-PACE-2017-instances](https://github.com/PACE-challenge/Treewidth-PACE-2017-instances) |
+| pace2017-bonus | CC | [PACE-challenge/Treewidth-PACE-2017-bonus-instances](https://github.com/PACE-challenge/Treewidth-PACE-2017-bonus-instances) |
+| pace2016-testbed | GPL-3.0 | [holgerdell/PACE-treewidth-testbed](https://github.com/holgerdell/PACE-treewidth-testbed) |
+| named-graphs | Not specified | [freetdi/named-graphs](https://github.com/freetdi/named-graphs) |
+| control-flow-graphs | CC | [freetdi/CFGs](https://github.com/freetdi/CFGs) |
+| uai2014-graphs | CC | [PACE-challenge/UAI-2014-competition-graphs](https://github.com/PACE-challenge/UAI-2014-competition-graphs) |
+| transit-graphs | Not specified | [daajoe/transit_graphs](https://github.com/daajoe/transit_graphs) |
+| road-graphs | Public Domain / ODbL | [ben-strasser/road-graphs-pace16](https://github.com/ben-strasser/road-graphs-pace16) |
 
 ## References
 
