@@ -80,4 +80,9 @@ def parse_td_output(text):
             nums = [x for x in line.split() if x.isdigit()]
             if nums:
                 return {"treewidth": int(nums[0])}
+        # "Treewidth= <w>" (quickbb)
+        if line.startswith("Treewidth="):
+            nums = [x for x in line.split() if x.isdigit()]
+            if nums:
+                return {"treewidth": int(nums[0])}
     return None

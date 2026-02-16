@@ -1,0 +1,99 @@
+diff --git a/src/Graph.cpp b/src/Graph.cpp
+index 4ae0e42..95f1afd 100644
+--- a/src/Graph.cpp
++++ b/src/Graph.cpp
+@@ -132,6 +132,7 @@ int GraphOperations::Graph::addEdge(int i, int j)
+     if(temp!=NULL) temp->prev=adjMatrix[j][i];
+     adjMatrix[j][0]->number=adjMatrix[j][0]->number+1;
+   }
++  return 0;
+ }
+ int GraphOperations::Graph::addEdges(vector<Edge> &edges)
+ {
+@@ -143,6 +144,7 @@ int GraphOperations::Graph::addEdges(vector<Edge> &edges)
+     addEdge(e.v1,e.v2);
+     curr++;
+   }
++  return 0;
+ }
+ int GraphOperations::Graph::addEdges(list<Edge> &edges)
+ {
+@@ -154,6 +156,7 @@ int GraphOperations::Graph::addEdges(list<Edge> &edges)
+     addEdge(e.v1,e.v2);
+     curr++;
+   }
++  return 0;
+ }
+ 
+ int GraphOperations::Graph::deleteEdges(vector<Edge> &edges)
+@@ -166,6 +169,7 @@ int GraphOperations::Graph::deleteEdges(vector<Edge> &edges)
+     deleteEdge(e.v1,e.v2);
+     curr++;
+   }
++  return 0;
+ }
+ 
+ int GraphOperations::Graph::deleteEdges(list<Edge> &edges)
+@@ -178,6 +182,7 @@ int GraphOperations::Graph::deleteEdges(list<Edge> &edges)
+     deleteEdge(e.v1,e.v2);
+     curr++;
+   }
++  return 0;
+ }
+ 
+ 
+@@ -227,6 +232,7 @@ int GraphOperations::Graph::deleteVertex(int i)
+     vertex[i]->Reset(i);
+     numVertices=numVertices-1;
+   }
++  return 0;
+ }
+ 
+ 
+@@ -461,7 +467,7 @@ int GraphOperations::Graph::computeM1LB()
+   int maxDegree = -1;
+   int maxMinDegree;
+   
+-  hash_set<int> degreeList[numVertices-1];
++  vector<hash_set<int>> degreeList(adjMatrix.size());
+   vector<ChangingVertex> changedVertices(numVertices-1);
+   for(i=0;i<numVertices-1;i++){
+     degreeList[i]=hash_set<int>();
+@@ -636,7 +642,7 @@ int GraphOperations::Graph::computeM2LB()
+   int maxDegree = -1;
+   int maxMinDegree;
+   
+-  hash_set<int> degreeList[numVertices-1];
++  vector<hash_set<int>> degreeList(adjMatrix.size());
+   vector<ChangingVertex> changedVertices(numVertices-1);
+   for(i=0;i<numVertices-1;i++){
+     degreeList[i]=hash_set<int>();
+@@ -881,6 +887,7 @@ vector<int> GraphOperations::Graph::minDegreeBBOrdering()
+           ordering[count++]=where_to_put[j];
+ 
+       }
++    return ordering;
+   }
+ // Returns a list in which the vertices are sorted based on the number of edges
+ // added by each in triangulation
+@@ -896,7 +903,7 @@ std::vector<int> GraphOperations::Graph::minFillBBOrdering()
+   int count=0;
+   int min = numVertices*numVertices;
+   int max = 0;
+-  list<int> sList[numVertices*(numVertices-1)/2];
++  vector<list<int>> sList(numVertices*(numVertices-1)/2);
+   while(vList!=NULL){
+     int v = vList->number;
+     int key = getNumEdgesAdded(v);
+diff --git a/src/Node.cpp b/src/Node.cpp
+index caeb57d..166c2d1 100644
+--- a/src/Node.cpp
++++ b/src/Node.cpp
+@@ -137,6 +137,7 @@ int Node::expandNode(int bound, Graph &graph,
+ 
+   generateChildren(bound,graph);
+   
++  return 0;
+ }
+             
+ /*

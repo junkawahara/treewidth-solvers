@@ -119,6 +119,7 @@
     "repo": "https://github.com/dechterlab/quickbb.git",
     "build_steps": [
       "sed -i '/#include <getopt.h>/a #include <cstring>' src/quickbb_1.cpp",
+      "git apply ../../config/quickbb-ub-fix.patch",
       "autoreconf -fi",
       "./configure",
       "make"
