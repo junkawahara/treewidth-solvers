@@ -1,0 +1,9 @@
+solvers/*/
+benchmarks/*/
+results/*.csv
+__pycache__/
+*.pyc
+*.class
+*.o
+*.exe
+.claude/

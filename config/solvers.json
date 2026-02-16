@@ -1,0 +1,215 @@
+[
+  {
+    "name": "twalgor-tw",
+    "type": "exact",
+    "language": "java",
+    "repo": "https://github.com/twalgor/tw.git",
+    "build_steps": [
+      "find . -name '*.java' > sources.txt",
+      "mkdir -p bin",
+      "javac -d bin @sources.txt"
+    ],
+    "run_command": "java -cp bin io.github.twalgor.main.ExactTW {input} {output_td}",
+    "run_mode": "file",
+    "input_format": "pace_gr",
+    "output_format": "pace_td",
+    "authors": "Hisao Tamaki",
+    "pace_year": null,
+    "description": "Heuristic computation of exact treewidth (2022)"
+  },
+  {
+    "name": "twalgor-rtw",
+    "type": "exact",
+    "language": "java",
+    "repo": "https://github.com/twalgor/RTW.git",
+    "build_steps": [
+      "find . -name '*.java' > sources.txt",
+      "mkdir -p bin",
+      "javac -d bin @sources.txt"
+    ],
+    "run_command": "java -cp bin io.github.twalgor.main.Main {instance_name} {input_dir} {output_dir}",
+    "run_mode": "file",
+    "input_format": "pace_gr",
+    "output_format": "pace_td",
+    "authors": "Hisao Tamaki",
+    "pace_year": null,
+    "description": "Contraction-recursive algorithm for treewidth (2023)"
+  },
+  {
+    "name": "tamaki-2017",
+    "type": "both",
+    "language": "java",
+    "repo": "https://github.com/TCS-Meiji/PACE2017-TrackA.git",
+    "build_steps": [
+      "make exact",
+      "make heuristic"
+    ],
+    "run_command": "./tw-exact < {input}",
+    "run_command_heuristic": "./tw-heuristic < {input}",
+    "run_mode": "stdin_stdout",
+    "input_format": "pace_gr",
+    "output_format": "pace_td",
+    "authors": "Hisao Tamaki, Hiromu Ohtsuka, Takuto Sato, Keitaro Makii",
+    "pace_year": 2017,
+    "description": "PACE 2017 Track A winner (exact & heuristic)"
+  },
+  {
+    "name": "tamaki-2016",
+    "type": "exact",
+    "language": "c",
+    "repo": "https://github.com/TCS-Meiji/treewidth-exact.git",
+    "build_steps": [
+      "make CFLAGS='-std=gnu99 -O2 -fcommon'"
+    ],
+    "run_command": "./tw-exact < {input}",
+    "run_mode": "stdin_stdout",
+    "input_format": "pace_gr",
+    "output_format": "pace_td",
+    "authors": "Hisao Tamaki",
+    "pace_year": 2016,
+    "description": "PACE 2016 exact track winner (C99)"
+  },
+  {
+    "name": "tdlib-p17",
+    "type": "both",
+    "language": "cpp",
+    "repo": "https://github.com/freetdi/p17.git",
+    "build_steps": [
+      "git clone --depth 1 https://github.com/bingmann/stx-btree.git /tmp/stx-btree 2>/dev/null; mkdir -p ta && cp -r /tmp/stx-btree/include/stx ta/",
+      "sed -i 's/unsigned dummy;/static unsigned dummy;/' tdlib/src/graph_traits.hpp",
+      "sed -i 's/return treedec::bagsize_t().dummy;/return treedec::bagsize_t::dummy;/' tdlib/src/graph_traits.hpp",
+      "sed -i '/^} \\/\\/ treedec/i inline unsigned bagsize_t::dummy = 0;' tdlib/src/graph_traits.hpp",
+      "sed -i 's|CXXFLAGS=-O3|CXXFLAGS=\"-O3 -fpermissive\"|' Makefile",
+      "make"
+    ],
+    "run_command": "./tw-exact < {input}",
+    "run_command_heuristic": "./tw-heuristic < {input}",
+    "run_mode": "stdin_stdout",
+    "input_format": "pace_gr",
+    "output_format": "pace_td",
+    "authors": "Lukas Larisch, Felix Salfelder",
+    "pace_year": 2017,
+    "description": "TDLIB PACE 2017 submission (C++ port of Tamaki + heuristic)"
+  },
+  {
+    "name": "jdrasil",
+    "type": "both",
+    "language": "java",
+    "repo": "https://github.com/maxbannach/Jdrasil.git",
+    "build_steps": [
+      "find subprojects/core/src/main -name '*.java' > sources.txt",
+      "mkdir -p bin",
+      "javac -d bin -sourcepath subprojects/core/src/main/java -XDignore.symbol.file @sources.txt",
+      "mkdir -p build/jars",
+      "jar cfe build/jars/Jdrasil.jar jdrasil.Exact -C bin ."
+    ],
+    "run_command": "java -cp build/jars/Jdrasil.jar jdrasil.Exact < {input}",
+    "run_command_heuristic": "java -cp build/jars/Jdrasil.jar jdrasil.Heuristic < {input}",
+    "run_mode": "stdin_stdout",
+    "input_format": "pace_gr",
+    "output_format": "pace_td",
+    "authors": "Max Bannach, Sebastian Berndt, Thorsten Ehlers",
+    "pace_year": 2017,
+    "description": "Modular treewidth solver framework"
+  },
+  {
+    "name": "quickbb",
+    "type": "exact",
+    "language": "cpp",
+    "repo": "https://github.com/dechterlab/quickbb.git",
+    "build_steps": [
+      "sed -i '/#include <getopt.h>/a #include <cstring>' src/quickbb_1.cpp",
+      "autoreconf -fi",
+      "./configure",
+      "make"
+    ],
+    "run_command": "./quickbb --min-fill-ordering --time {timeout} --cnffile {input}",
+    "run_mode": "file",
+    "input_format": "quickbb_cnf",
+    "output_format": "quickbb",
+    "authors": "Vibhav Gogate, Rina Dechter",
+    "pace_year": null,
+    "description": "Branch-and-bound exact treewidth solver"
+  },
+  {
+    "name": "treewidth-solver-jl",
+    "type": "exact",
+    "language": "julia",
+    "repo": "https://github.com/ArrogantGao/TreeWidthSolver.jl.git",
+    "build_steps": [
+      "julia -e 'using Pkg; Pkg.activate(\".\"); Pkg.instantiate()'"
+    ],
+    "run_command": "julia --project=. -e 'using TreeWidthSolver; include(\"run_wrapper.jl\")' {input}",
+    "run_mode": "file",
+    "input_format": "pace_gr",
+    "output_format": "pace_td",
+    "authors": "ArrogantGao",
+    "pace_year": null,
+    "description": "Julia implementation of Bouchitte-Todinca algorithm"
+  },
+  {
+    "name": "flowcutter-17",
+    "type": "heuristic",
+    "language": "cpp",
+    "repo": "https://github.com/kit-algo/flow-cutter-pace17.git",
+    "build_steps": [
+      "./build.sh"
+    ],
+    "run_command": "./flow_cutter_pace17 < {input}",
+    "run_mode": "stdin_stdout_signal",
+    "input_format": "pace_gr",
+    "output_format": "pace_td",
+    "authors": "Ben Strasser",
+    "pace_year": 2017,
+    "description": "Nested dissection via max-flow based balanced cuts"
+  },
+  {
+    "name": "htd",
+    "type": "heuristic",
+    "language": "cpp",
+    "repo": "https://github.com/mabseher/htd.git",
+    "build_steps": [
+      "mkdir -p build",
+      "cd build && cmake .. && make -j$(nproc)"
+    ],
+    "run_command": "./build/bin/htd_main --type tree --input gr --output td --strategy min-fill < {input}",
+    "run_mode": "stdin_stdout",
+    "input_format": "pace_gr",
+    "output_format": "pace_td",
+    "authors": "Michael Abseher, Nysret Musliu, Stefan Woltran",
+    "pace_year": 2017,
+    "description": "Hypertree/tree decomposition library (TU Wien)"
+  },
+  {
+    "name": "minfill-mrs",
+    "type": "heuristic",
+    "language": "cpp",
+    "repo": "https://github.com/td-mrs/minfill_mrs.git",
+    "build_steps": [
+      "make"
+    ],
+    "run_command": "./tw-heuristic < {input}",
+    "run_mode": "stdin_stdout_signal",
+    "input_format": "pace_gr",
+    "output_format": "pace_td",
+    "authors": "Philippe Jégou, Hanan Kanso, Cyril Terrioux",
+    "pace_year": 2017,
+    "description": "Min-fill heuristic with restarts"
+  },
+  {
+    "name": "minfillbg-mrs",
+    "type": "heuristic",
+    "language": "cpp",
+    "repo": "https://github.com/td-mrs/minfillbg_mrs.git",
+    "build_steps": [
+      "make"
+    ],
+    "run_command": "./tw-heuristic < {input}",
+    "run_mode": "stdin_stdout_signal",
+    "input_format": "pace_gr",
+    "output_format": "pace_td",
+    "authors": "Philippe Jégou, Hanan Kanso, Cyril Terrioux",
+    "pace_year": 2017,
+    "description": "Min-fill with bipartite graph improvements"
+  }
+]

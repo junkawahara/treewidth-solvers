@@ -1,0 +1,66 @@
+[
+  {
+    "name": "pace2017-instances",
+    "repo": "https://github.com/PACE-challenge/Treewidth-PACE-2017-instances.git",
+    "format": "pace_gr",
+    "glob": "**/*.gr",
+    "description": "PACE 2017 official competition instances",
+    "source": "PACE 2017"
+  },
+  {
+    "name": "pace2017-bonus",
+    "repo": "https://github.com/PACE-challenge/Treewidth-PACE-2017-bonus-instances.git",
+    "format": "pace_gr",
+    "glob": "**/*.gr",
+    "description": "PACE 2017 bonus (extra challenging) instances",
+    "source": "PACE 2017"
+  },
+  {
+    "name": "pace2016-testbed",
+    "repo": "https://github.com/holgerdell/PACE-treewidth-testbed.git",
+    "format": "pace_gr",
+    "glob": "**/*.gr",
+    "description": "PACE 2016 treewidth testbed (instances + tools)",
+    "source": "PACE 2016"
+  },
+  {
+    "name": "named-graphs",
+    "repo": "https://github.com/freetdi/named-graphs.git",
+    "format": "pace_gr",
+    "glob": "**/*.gr",
+    "description": "Collection of named graphs (Petersen, Hoffman, etc.)",
+    "source": "Lukas Larisch"
+  },
+  {
+    "name": "control-flow-graphs",
+    "repo": "https://github.com/freetdi/CFGs.git",
+    "format": "pace_gr",
+    "glob": "**/*.gr",
+    "description": "Control flow graphs from compiled programs",
+    "source": "Lukas Larisch"
+  },
+  {
+    "name": "uai2014-graphs",
+    "repo": "https://github.com/PACE-challenge/UAI-2014-competition-graphs.git",
+    "format": "pace_gr",
+    "glob": "**/*.gr",
+    "description": "Graphs from UAI 2014 probabilistic inference competition",
+    "source": "PACE / UAI 2014"
+  },
+  {
+    "name": "transit-graphs",
+    "repo": "https://github.com/daajoe/transit_graphs.git",
+    "format": "pace_gr",
+    "glob": "**/*.gr",
+    "description": "Transit/transportation network graphs",
+    "source": "Johannes Fichte"
+  },
+  {
+    "name": "road-graphs",
+    "repo": "https://github.com/ben-strasser/road-graphs-pace16.git",
+    "format": "pace_gr",
+    "glob": "**/*.gr",
+    "description": "Road network graphs",
+    "source": "Ben Strasser"
+  }
+]
