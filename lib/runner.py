@@ -96,8 +96,9 @@ def run_solver(solver_name, input_path, timeout=300, use_heuristic=False):
     td_file.close()
     cleanup_files.append(td_file.name)
 
-    input_dir = str(Path(input_path).parent)
+    input_dir = str(Path(input_path).resolve().parent)
     iname = Path(input_path).stem
+    converted_input = str(Path(converted_input).resolve())
 
     cmd = cmd_template.format(
         input=converted_input,
