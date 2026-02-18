@@ -173,7 +173,7 @@
       "mkdir -p build",
       "cd build && cmake .. && make -j$(nproc)"
     ],
-    "run_command": "./build/bin/htd_main --type tree --input gr --output td --strategy min-fill < {input}",
+    "run_command": "LD_LIBRARY_PATH=./build/lib ./build/bin/htd_main --type tree --input gr --output td --strategy min-fill < {input}",
     "run_mode": "stdin_stdout",
     "input_format": "pace_gr",
     "output_format": "pace_td",

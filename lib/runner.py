@@ -111,6 +111,7 @@ def run_solver(solver_name, input_path, timeout=300, use_heuristic=False):
 
     try:
         start_time = time.monotonic()
+        signal_timeout = False
 
         if mode == "stdin_stdout":
             with open(input_path) as fin:
@@ -141,6 +142,7 @@ def run_solver(solver_name, input_path, timeout=300, use_heuristic=False):
             try:
                 stdout, stderr = proc.communicate(timeout=timeout)
             except subprocess.TimeoutExpired:
+                signal_timeout = True
                 os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
                 try:
                     stdout, stderr = proc.communicate(timeout=5)
@@ -201,7 +203,12 @@ def run_solver(solver_name, input_path, timeout=300, use_heuristic=False):
                     result["status"] = "ok"
                     break
             else:
-                result["status"] = "parse_error"
+                # If signal-based timeout occurred and no output, report as timeout
+                if mode == "stdin_stdout_signal" and signal_timeout:
+                    result["status"] = "timeout"
+                    result["time_sec"] = timeout
+                else:
+                    result["status"] = "parse_error"
 
     except subprocess.TimeoutExpired:
         result["time_sec"] = timeout
