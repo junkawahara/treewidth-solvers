@@ -90,7 +90,23 @@ def build_solver(solver):
                 timeout=300,
             )
         except subprocess.CalledProcessError as e:
-            print(f"    Build step failed: {e.stderr.strip()[:500]}")
+            stderr_lines = (e.stderr or "").strip().splitlines()
+            stdout_lines = (e.stdout or "").strip().splitlines()
+            print(f"    Build step failed (exit code {e.returncode}):")
+            if stderr_lines:
+                tail = stderr_lines[-30:]
+                if len(stderr_lines) > 30:
+                    print(f"    ... ({len(stderr_lines) - 30} lines omitted)")
+                for line in tail:
+                    print(f"    [stderr] {line}")
+            if stdout_lines:
+                tail = stdout_lines[-15:]
+                if len(stdout_lines) > 15:
+                    print(f"    ... ({len(stdout_lines) - 15} lines omitted)")
+                for line in tail:
+                    print(f"    [stdout] {line}")
+            if not stderr_lines and not stdout_lines:
+                print(f"    (no output)")
             return False
         except subprocess.TimeoutExpired:
             print(f"    Build step timed out")
