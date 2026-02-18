@@ -14,7 +14,9 @@ Required:
 
 Per-solver dependencies:
 - **Java solvers** (twalgor-tw, twalgor-rtw, tamaki-2017, tamaki-2016, jdrasil): JDK 8+
-- **C++ solvers** (tdlib-p17, flowcutter-17, htd, minfill-mrs, minfillbg-mrs): GCC 4.8+, CMake (htd only), Boost (tdlib-p17 only), autotools (tdlib-p17 only)
+- **C++ solvers** (tdlib-p17, flowcutter-17, htd, minfill-mrs, minfillbg-mrs): GCC 4.8+
+  - **tdlib-p17** requires Boost and autotools (`sudo apt install libboost-graph-dev autoconf automake` on Debian/Ubuntu)
+  - **htd** requires CMake (`sudo apt install cmake` on Debian/Ubuntu)
 - **QuickBB**: GCC, autotools (autoconf, automake)
 - **TreeWidthSolver.jl**: Julia 1.6+
 
