@@ -50,10 +50,47 @@ def resolve_benchmarks(names):
 
 def _run_one(args):
     """Wrapper for process pool."""
-    solver_name, instance_path, timeout, bench_name, use_heuristic = args
-    result = run_solver(solver_name, instance_path, timeout, use_heuristic)
+    solver_name, instance_path, timeout, bench_name, use_heuristic, debug = args
+    result = run_solver(solver_name, instance_path, timeout, use_heuristic, debug=debug)
     result["benchmark_set"] = bench_name
     return result
+
+
+def _print_debug(result):
+    """Print diagnostic info for failed solver runs."""
+    if result["status"] == "ok":
+        return
+    dbg = result.get("_debug")
+    if not dbg:
+        return
+
+    solver = result["solver"]
+    instance = result["instance"]
+    status = result["status"]
+
+    print(f"\n{'=' * 72}")
+    print(f"  DEBUG: {solver} on {instance} [{status}]")
+    print(f"{'=' * 72}")
+    print(f"  Command: {dbg['command']}")
+    print(f"  CWD:     {dbg['cwd']}")
+    print(f"  Exit code: {dbg['returncode']}")
+
+    stderr = dbg.get("stderr", "")
+    print(f"  --- stderr ({len(stderr)} chars) ---")
+    if stderr.strip():
+        for line in stderr.strip().splitlines()[:40]:
+            print(f"  | {line}")
+    else:
+        print("  (empty)")
+
+    stdout_raw = dbg.get("stdout_raw", "")
+    print(f"  --- stdout ({len(stdout_raw)} chars) ---")
+    if stdout_raw.strip():
+        for line in stdout_raw.strip().splitlines()[:20]:
+            print(f"  | {line}")
+    else:
+        print("  (empty)")
+    print(f"{'=' * 72}")
 
 
 def main():
@@ -99,6 +136,11 @@ def main():
         help="Max instances per benchmark set (for quick testing)",
     )
     parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Print diagnostic info (command, stderr, stdout) for failed runs",
+    )
+    parser.add_argument(
         "--list", action="store_true", help="List installed solvers and benchmarks"
     )
     args = parser.parse_args()
@@ -139,7 +181,7 @@ def main():
         for solver_name in solvers:
             for inst in instances:
                 work.append(
-                    (solver_name, inst, args.timeout, bench_name, args.heuristic)
+                    (solver_name, inst, args.timeout, bench_name, args.heuristic, args.debug)
                 )
 
     total = len(work)
@@ -153,7 +195,7 @@ def main():
 
     if args.jobs == 1:
         for item in work:
-            solver_name, inst, _, bench_name, _ = item
+            solver_name, inst, _, bench_name, _, _ = item
             inst_name = Path(inst).stem
             done += 1
             print(
@@ -165,12 +207,14 @@ def main():
             results.append(r)
             tw = r["treewidth"] if r["treewidth"] is not None else "-"
             print(f" tw={tw} t={r['time_sec']}s [{r['status']}]")
+            if args.debug:
+                _print_debug(r)
     else:
         with ProcessPoolExecutor(max_workers=args.jobs) as pool:
             futures = {pool.submit(_run_one, item): item for item in work}
             for future in as_completed(futures):
                 item = futures[future]
-                solver_name, inst, _, bench_name, _ = item
+                solver_name, inst, _, bench_name, _, _ = item
                 inst_name = Path(inst).stem
                 done += 1
                 r = future.result()
@@ -181,6 +225,8 @@ def main():
                     f" tw={tw} t={r['time_sec']}s [{r['status']}]",
                     flush=True,
                 )
+                if args.debug:
+                    _print_debug(r)
 
     # Write results
     if args.output:

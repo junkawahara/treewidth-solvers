@@ -53,11 +53,13 @@ def _build_run_command(solver, input_path, timeout):
     return cmd, mode, sdir, td_output.name, converted_input
 
 
-def run_solver(solver_name, input_path, timeout=300, use_heuristic=False):
+def run_solver(solver_name, input_path, timeout=300, use_heuristic=False, debug=False):
     """Run a solver on a single instance.
 
     Returns dict with keys:
       solver, instance, vertices, edges, treewidth, time_sec, status, memory_mb
+    When debug=True, also includes _debug dict with command, cwd, returncode,
+    stderr, and stdout_raw.
     """
     solver = get_solver(solver_name)
     info = get_graph_info(input_path)
@@ -109,9 +111,18 @@ def run_solver(solver_name, input_path, timeout=300, use_heuristic=False):
         timeout=timeout,
     )
 
+    _debug = {
+        "command": cmd,
+        "cwd": str(sdir),
+        "returncode": None,
+        "stderr": "",
+        "stdout_raw": "",
+    } if debug else None
+
     try:
         start_time = time.monotonic()
         signal_timeout = False
+        stderr_text = ""
 
         if mode == "stdin_stdout":
             with open(input_path) as fin:
@@ -125,6 +136,9 @@ def run_solver(solver_name, input_path, timeout=300, use_heuristic=False):
                     timeout=timeout,
                 )
             stdout = proc.stdout
+            stderr_text = proc.stderr
+            if _debug:
+                _debug["returncode"] = proc.returncode
 
         elif mode == "stdin_stdout_signal":
             # Heuristic solver: run for `timeout` seconds, then send SIGTERM
@@ -140,15 +154,17 @@ def run_solver(solver_name, input_path, timeout=300, use_heuristic=False):
                     preexec_fn=os.setsid,
                 )
             try:
-                stdout, stderr = proc.communicate(timeout=timeout)
+                stdout, stderr_text = proc.communicate(timeout=timeout)
             except subprocess.TimeoutExpired:
                 signal_timeout = True
                 os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
                 try:
-                    stdout, stderr = proc.communicate(timeout=5)
+                    stdout, stderr_text = proc.communicate(timeout=5)
                 except subprocess.TimeoutExpired:
                     os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
-                    stdout, stderr = proc.communicate(timeout=5)
+                    stdout, stderr_text = proc.communicate(timeout=5)
+            if _debug:
+                _debug["returncode"] = proc.returncode
 
         elif mode == "file":
             proc = subprocess.run(
@@ -160,6 +176,9 @@ def run_solver(solver_name, input_path, timeout=300, use_heuristic=False):
                 timeout=timeout,
             )
             stdout = proc.stdout
+            stderr_text = proc.stderr
+            if _debug:
+                _debug["returncode"] = proc.returncode
             # Try reading output from file
             if os.path.exists(td_file.name) and os.path.getsize(td_file.name) > 0:
                 with open(td_file.name) as f:
@@ -185,9 +204,16 @@ def run_solver(solver_name, input_path, timeout=300, use_heuristic=False):
                     timeout=timeout,
                 )
             stdout = proc.stdout
+            stderr_text = proc.stderr
+            if _debug:
+                _debug["returncode"] = proc.returncode
 
         elapsed = time.monotonic() - start_time
         result["time_sec"] = round(elapsed, 3)
+
+        if _debug:
+            _debug["stderr"] = stderr_text
+            _debug["stdout_raw"] = stdout[:2000]
 
         # Parse treewidth from output
         td_info = parse_td_output(stdout)
@@ -215,12 +241,18 @@ def run_solver(solver_name, input_path, timeout=300, use_heuristic=False):
         result["status"] = "timeout"
     except Exception as e:
         result["status"] = f"error: {str(e)[:100]}"
+        if _debug:
+            import traceback
+            _debug["stderr"] = traceback.format_exc()
     finally:
         for f in cleanup_files:
             try:
                 os.unlink(f)
             except OSError:
                 pass
+
+    if _debug is not None:
+        result["_debug"] = _debug
 
     return result
 
