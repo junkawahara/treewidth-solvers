@@ -42,7 +42,8 @@
     "repo": "https://github.com/TCS-Meiji/PACE2017-TrackA.git",
     "build_steps": [
       "make exact",
-      "make heuristic"
+      "make heuristic",
+      "chmod +x tw-exact tw-heuristic"
     ],
     "run_command": "./tw-exact < {input}",
     "run_command_heuristic": "./tw-heuristic < {input}",
@@ -76,9 +77,9 @@
     "repo": "https://github.com/freetdi/p17.git",
     "build_steps": [
       "git clone --depth 1 https://github.com/bingmann/stx-btree.git /tmp/stx-btree 2>/dev/null; mkdir -p ta && cp -r /tmp/stx-btree/include/stx ta/",
-      "sed -i 's/unsigned dummy;/static unsigned dummy;/' tdlib/src/graph_traits.hpp",
+      "grep -q 'static unsigned dummy' tdlib/src/graph_traits.hpp || sed -i 's/unsigned dummy;/static unsigned dummy;/' tdlib/src/graph_traits.hpp",
       "sed -i 's/return treedec::bagsize_t().dummy;/return treedec::bagsize_t::dummy;/' tdlib/src/graph_traits.hpp",
-      "sed -i '/^} \\/\\/ treedec/i inline unsigned bagsize_t::dummy = 0;' tdlib/src/graph_traits.hpp",
+      "grep -q 'inline unsigned bagsize_t::dummy' tdlib/src/graph_traits.hpp || sed -i '/^} \\/\\/ treedec/i inline unsigned bagsize_t::dummy = 0;' tdlib/src/graph_traits.hpp",
       "sed -i 's|CXXFLAGS=-O3|CXXFLAGS=\"-O3 -fpermissive\"|' Makefile",
       "make"
     ],
@@ -118,8 +119,8 @@
     "language": "cpp",
     "repo": "https://github.com/dechterlab/quickbb.git",
     "build_steps": [
-      "sed -i '/#include <getopt.h>/a #include <cstring>' src/quickbb_1.cpp",
-      "git apply ../../config/quickbb-ub-fix.patch",
+      "grep -q '#include <cstring>' src/quickbb_1.cpp || sed -i '/#include <getopt.h>/a #include <cstring>' src/quickbb_1.cpp",
+      "git apply --check ../../config/quickbb-ub-fix.patch 2>/dev/null && git apply ../../config/quickbb-ub-fix.patch || true",
       "autoreconf -fi",
       "./configure",
       "make"
