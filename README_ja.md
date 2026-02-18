@@ -1,4 +1,6 @@
-# Isawa - Treewidth Solver Benchmark Suite
+# AI生成 Treewidth Solver Benchmark Suite
+
+> **注意**: 本リポジトリのコード、ドキュメント、設定ファイルを含むすべての内容は、AI (Claude) によって生成されたものです。人間が手作業で記述した部分はありません。
 
 [English](README.md)
 

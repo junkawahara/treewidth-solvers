@@ -178,7 +178,8 @@ def main():
                 tw = r["treewidth"] if r["treewidth"] is not None else "-"
                 print(
                     f"[{done}/{total}] {solver_name} on {bench_name}/{inst_name}"
-                    f" tw={tw} t={r['time_sec']}s [{r['status']}]"
+                    f" tw={tw} t={r['time_sec']}s [{r['status']}]",
+                    flush=True,
                 )
 
     # Write results
