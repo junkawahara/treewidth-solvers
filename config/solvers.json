@@ -79,7 +79,7 @@
       "git clone --depth 1 https://github.com/bingmann/stx-btree.git /tmp/stx-btree 2>/dev/null; mkdir -p ta && cp -r /tmp/stx-btree/include/stx ta/",
       "grep -q 'static unsigned dummy' tdlib/src/graph_traits.hpp || sed -i 's/unsigned dummy;/static unsigned dummy;/' tdlib/src/graph_traits.hpp",
       "sed -i 's/return treedec::bagsize_t().dummy;/return treedec::bagsize_t::dummy;/' tdlib/src/graph_traits.hpp",
-      "grep -q 'inline unsigned bagsize_t::dummy' tdlib/src/graph_traits.hpp || sed -i '/^} \\/\\/ treedec/i inline unsigned bagsize_t::dummy = 0;' tdlib/src/graph_traits.hpp",
+      "grep -q 'inline unsigned bagsize_t::dummy' tdlib/src/graph_traits.hpp || sed -i '0,/^} \\/\\/ treedec/s/^} \\/\\/ treedec/inline unsigned bagsize_t::dummy = 0;\\n} \\/\\/ treedec/' tdlib/src/graph_traits.hpp",
       "sed -i 's|CXXFLAGS=-O3|CXXFLAGS=\"-O3 -fpermissive\"|' Makefile",
       "make"
     ],
