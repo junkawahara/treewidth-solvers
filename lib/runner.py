@@ -62,19 +62,29 @@ def run_solver(solver_name, input_path, timeout=300, use_heuristic=False, debug=
     stderr, and stdout_raw.
     """
     solver = get_solver(solver_name)
-    info = get_graph_info(input_path)
     instance_name = Path(input_path).stem
 
     result = {
         "solver": solver_name,
         "instance": instance_name,
-        "vertices": info["vertices"],
-        "edges": info["edges"],
+        "vertices": None,
+        "edges": None,
         "treewidth": None,
         "time_sec": None,
         "status": "error",
         "memory_mb": None,
     }
+
+    # Parse graph info defensively: a single malformed instance must not abort
+    # the whole benchmark run (the exception used to propagate out of the
+    # process pool and discard every result collected so far).
+    try:
+        info = get_graph_info(input_path)
+        result["vertices"] = info["vertices"]
+        result["edges"] = info["edges"]
+    except Exception as e:
+        result["status"] = f"error: {str(e)[:100]}"
+        return result
 
     # Select command template
     cmd_template = solver["run_command"]
