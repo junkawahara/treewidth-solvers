@@ -11,6 +11,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SOLVERS_DIR = BASE_DIR / "solvers"
 CONFIG_FILE = BASE_DIR / "config" / "solvers.json"
 
+# Marker file written into a solver directory once its build has succeeded, so
+# is_installed reports a solver as usable only when its binaries actually exist.
+BUILD_MARKER = ".tw_build_complete"
+
 
 def load_solvers():
     with open(CONFIG_FILE) as f:
@@ -29,7 +33,10 @@ def solver_dir(name):
 
 
 def is_installed(name):
-    return solver_dir(name).exists()
+    # A solver counts as installed only if its build finished successfully.
+    # Cloning alone creates the directory but leaves no marker, so a solver
+    # whose build failed is no longer mistaken for a runnable one.
+    return (solver_dir(name) / BUILD_MARKER).exists()
 
 
 def check_dependency(lang):
@@ -77,6 +84,9 @@ def build_solver(solver):
         print(f"  [{name}] Not downloaded yet")
         return False
     print(f"  [{name}] Building ...")
+    # Drop any marker from a previous successful build so a now-failing build
+    # is not still reported as installed.
+    (dest / BUILD_MARKER).unlink(missing_ok=True)
     for step in solver.get("build_steps", []):
         print(f"    $ {step}")
         try:
@@ -111,6 +121,7 @@ def build_solver(solver):
         except subprocess.TimeoutExpired:
             print(f"    Build step timed out")
             return False
+    (dest / BUILD_MARKER).write_text("ok\n")
     print(f"  [{name}] Build successful")
     return True
 
