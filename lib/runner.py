@@ -16,43 +16,6 @@ from lib.format_converter import (
 from lib.solver_registry import get_solver, solver_dir
 
 
-def _build_run_command(solver, input_path, timeout):
-    """Build the actual shell command to run a solver."""
-    sdir = solver_dir(solver["name"])
-    mode = solver.get("run_mode", "stdin_stdout")
-    cmd_template = solver["run_command"]
-
-    # Determine which command template to use
-    if solver["type"] == "heuristic" and "run_command_heuristic" in solver:
-        cmd_template = solver["run_command_heuristic"]
-
-    # Handle format conversion
-    converted_input = input_path
-    if solver.get("input_format") == "quickbb_cnf":
-        converted = tempfile.NamedTemporaryFile(suffix=".cnf", delete=False)
-        converted.close()
-        pace_gr_to_quickbb_cnf(input_path, converted.name)
-        converted_input = converted.name
-
-    # Substitute placeholders
-    input_dir = str(Path(input_path).parent)
-    instance_name = Path(input_path).stem
-
-    td_output = tempfile.NamedTemporaryFile(suffix=".td", delete=False)
-    td_output.close()
-
-    cmd = cmd_template.format(
-        input=converted_input,
-        input_dir=input_dir,
-        instance_name=instance_name,
-        output_td=td_output.name,
-        output_dir=tempfile.gettempdir(),
-        timeout=timeout,
-    )
-
-    return cmd, mode, sdir, td_output.name, converted_input
-
-
 def run_solver(solver_name, input_path, timeout=300, use_heuristic=False, debug=False):
     """Run a solver on a single instance.
 
