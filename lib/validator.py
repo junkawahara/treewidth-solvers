@@ -52,6 +52,36 @@ def validate(graph_path, td_text):
     if not bags:
         return False, -1, ["No bags found in decomposition"]
 
+    # Check 0: the bags must form a tree -- connected and acyclic. Without this
+    # a "forest" with too few tree edges, or bags wired into a cycle, would pass
+    # validation and a bogus width smaller than the true treewidth be accepted.
+    bag_ids = set(bags.keys())
+    undirected = set()
+    for a, b in tree_edges:
+        if a == b:
+            continue
+        undirected.add((min(a, b), max(a, b)))
+    tree_adj = defaultdict(set)
+    for a, b in undirected:
+        tree_adj[a].add(b)
+        tree_adj[b].add(a)
+    start = next(iter(bag_ids))
+    seen = {start}
+    dq = deque([start])
+    while dq:
+        cur = dq.popleft()
+        for nb in tree_adj[cur]:
+            if nb in bag_ids and nb not in seen:
+                seen.add(nb)
+                dq.append(nb)
+    if seen != bag_ids:
+        errors.append("Decomposition tree is not connected")
+    if len(undirected) != len(bag_ids) - 1:
+        errors.append(
+            f"Decomposition has {len(undirected)} tree edges, "
+            f"expected {len(bag_ids) - 1} for a tree"
+        )
+
     # Check 1: every vertex appears in at least one bag
     all_bag_vertices = set()
     for vset in bags.values():
