@@ -43,21 +43,25 @@ def is_installed(name):
 
 
 def check_dependency(lang):
-    """Check if the required language runtime/compiler is available."""
+    """Check that every tool needed to build and run this language is present."""
+    # Java solvers are compiled with javac (and packaged with jar) at build
+    # time, so checking only the java runtime let JRE-only environments pass
+    # the check and then fail every build step with "javac: not found".
     checks = {
-        "java": ["java", "-version"],
-        "c": ["gcc", "--version"],
-        "cpp": ["g++", "--version"],
-        "julia": ["julia", "--version"],
+        "java": [["java", "-version"], ["javac", "-version"]],
+        "c": [["gcc", "--version"]],
+        "cpp": [["g++", "--version"]],
+        "julia": [["julia", "--version"]],
     }
-    cmd = checks.get(lang)
-    if cmd is None:
+    cmds = checks.get(lang)
+    if cmds is None:
         return True
-    try:
-        subprocess.run(cmd, capture_output=True, check=True)
-        return True
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return False
+    for cmd in cmds:
+        try:
+            subprocess.run(cmd, capture_output=True, check=True)
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            return False
+    return True
 
 
 def download_solver(solver):
