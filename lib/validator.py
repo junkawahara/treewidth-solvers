@@ -90,6 +90,12 @@ def validate(graph_path, td_text):
         if v not in all_bag_vertices:
             errors.append(f"Vertex {v} not in any bag")
 
+    # Check 1b: no bag may contain a vertex outside 1..n. Out-of-range vertices
+    # are not part of the graph and would inflate the computed bag width.
+    for v in sorted(all_bag_vertices):
+        if v < 1 or v > n:
+            errors.append(f"Bag contains out-of-range vertex {v} (graph has {n})")
+
     # Check 2: every edge is covered
     for u, v in edges:
         found = False
