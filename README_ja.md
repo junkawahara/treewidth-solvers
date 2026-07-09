@@ -13,8 +13,8 @@
 - Git
 
 ソルバーごとの依存:
-- **Java ソルバー** (twalgor-tw, twalgor-rtw, tamaki-2017, tamaki-2016, jdrasil): JDK 8+
-- **C++ ソルバー** (tdlib-p17, flowcutter-17, htd, minfill-mrs, minfillbg-mrs): GCC 4.8+
+- **Java ソルバー** (twalgor-tw, twalgor-rtw, tamaki-2017, jdrasil): JDK 8+
+- **C/C++ ソルバー** (tamaki-2016, tdlib-p17, flowcutter-17, htd, minfill-mrs, minfillbg-mrs): GCC 4.8+
   - **tdlib-p17** は Boost と autotools が必要です（Debian/Ubuntu: `sudo apt install libboost-graph-dev autoconf automake`）
   - **htd** は CMake が必要です（Debian/Ubuntu: `sudo apt install cmake`）
 - **QuickBB**: GCC, autotools (autoconf, automake)
