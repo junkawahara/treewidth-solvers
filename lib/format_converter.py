@@ -9,9 +9,14 @@ from pathlib import Path
 
 
 def read_pace_gr(filepath):
-    """Read a PACE .gr file and return (n_vertices, edges)."""
+    """Read a PACE .gr file and return (n_vertices, edges).
+
+    Raises ValueError if the file has no problem line or if the number of edge
+    lines does not match the count declared on the "p" line -- a truncated or
+    malformed instance should be reported, not silently accepted.
+    """
     n = 0
-    m = 0
+    m = None
     edges = []
     with open(filepath) as f:
         for line in f:
@@ -26,6 +31,12 @@ def read_pace_gr(filepath):
                 parts = line.split()
                 u, v = int(parts[0]), int(parts[1])
                 edges.append((u, v))
+    if m is None:
+        raise ValueError(f"{filepath}: missing 'p' problem line")
+    if len(edges) != m:
+        raise ValueError(
+            f"{filepath}: declared {m} edges but found {len(edges)}"
+        )
     return n, edges
 
 
