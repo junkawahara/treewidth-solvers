@@ -1,7 +1,6 @@
 """Solver registry: download, build, and manage treewidth solvers."""
 
 import json
-import os
 import subprocess
 import shutil
 from pathlib import Path
