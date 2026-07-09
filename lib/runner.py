@@ -2,6 +2,8 @@
 
 import csv
 import os
+import shlex
+import shutil
 import signal
 import subprocess
 import tempfile
@@ -14,6 +16,81 @@ from lib.format_converter import (
     parse_td_output,
 )
 from lib.solver_registry import get_solver, solver_dir
+
+
+def _kill_group(proc, sig):
+    """Signal the whole process group led by proc; ignore it if already gone.
+
+    Wrapping killpg in a try guards against the race where the process exits
+    between the timeout firing and the signal being sent.
+    """
+    try:
+        os.killpg(os.getpgid(proc.pid), sig)
+    except (ProcessLookupError, OSError):
+        pass
+
+
+def _run_with_timeout(cmd, cwd, stdin_path, timeout):
+    """Run cmd in its own process group; return (stdout, stderr, timed_out, rc).
+
+    The child is started as a session/group leader (os.setsid) so that on
+    timeout the entire group -- including grandchildren such as the JVM that
+    solver wrapper scripts spawn -- is terminated with SIGTERM then SIGKILL,
+    rather than leaving orphaned processes competing for CPU and memory.
+    """
+    fin = open(stdin_path) if stdin_path else None
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            shell=True,
+            cwd=cwd,
+            stdin=fin if fin is not None else subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            preexec_fn=os.setsid,
+        )
+    finally:
+        if fin is not None:
+            fin.close()
+
+    timed_out = False
+    try:
+        stdout, stderr = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        _kill_group(proc, signal.SIGTERM)
+        try:
+            stdout, stderr = proc.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            _kill_group(proc, signal.SIGKILL)
+            try:
+                stdout, stderr = proc.communicate(timeout=5)
+            except subprocess.TimeoutExpired:
+                stdout, stderr = "", ""
+    return stdout, stderr, timed_out, proc.returncode
+
+
+def _read_file_output(work_dir, iname, td_path, stdout):
+    """For file-mode solvers, prefer a decomposition written to the work dir."""
+    if os.path.exists(td_path) and os.path.getsize(td_path) > 0:
+        with open(td_path) as f:
+            return f.read()
+    for ext in (".twc", ".td"):
+        alt = os.path.join(work_dir, iname + ext)
+        if os.path.exists(alt) and os.path.getsize(alt) > 0:
+            with open(alt) as f:
+                return f.read()
+    return stdout
+
+
+def _first_int_line(text):
+    """Return the first line that is a bare integer, or None."""
+    for line in text.strip().split("\n"):
+        line = line.strip()
+        if line.isdigit():
+            return int(line)
+    return None
 
 
 def run_solver(solver_name, input_path, timeout=300, use_heuristic=False, debug=False):
@@ -57,172 +134,95 @@ def run_solver(solver_name, input_path, timeout=300, use_heuristic=False, debug=
     mode = solver.get("run_mode", "stdin_stdout")
     sdir = solver_dir(solver_name)
 
-    # Handle format conversion
-    converted_input = input_path
-    cleanup_files = []
-    if solver.get("input_format") == "quickbb_cnf":
-        tmp = tempfile.NamedTemporaryFile(suffix=".cnf", delete=False)
-        tmp.close()
-        pace_gr_to_quickbb_cnf(input_path, tmp.name)
-        converted_input = tmp.name
-        cleanup_files.append(tmp.name)
-
-    td_file = tempfile.NamedTemporaryFile(suffix=".td", delete=False)
-    td_file.close()
-    cleanup_files.append(td_file.name)
-
-    input_dir = str(Path(input_path).resolve().parent)
-    iname = Path(input_path).stem
-    converted_input = str(Path(converted_input).resolve())
-
-    cmd = cmd_template.format(
-        input=converted_input,
-        input_dir=input_dir,
-        instance_name=iname,
-        output_td=td_file.name,
-        output_dir=tempfile.gettempdir(),
-        timeout=timeout,
-    )
-
     _debug = {
-        "command": cmd,
+        "command": "",
         "cwd": str(sdir),
         "returncode": None,
         "stderr": "",
         "stdout_raw": "",
     } if debug else None
 
+    # Per-run private working directory: converted inputs and solver output
+    # files live here so concurrent runs and stale files from earlier runs can
+    # never read or clobber one another. Cleaned up unconditionally below.
+    work_dir = tempfile.mkdtemp(prefix="tw_run_")
     try:
-        start_time = time.monotonic()
-        signal_timeout = False
-        stderr_text = ""
+        input_dir = str(Path(input_path).resolve().parent)
+        iname = instance_name
 
-        if mode == "stdin_stdout":
-            with open(input_path) as fin:
-                proc = subprocess.run(
-                    cmd,
-                    shell=True,
-                    cwd=str(sdir),
-                    stdin=fin,
-                    capture_output=True,
-                    text=True,
-                    timeout=timeout,
-                )
-            stdout = proc.stdout
-            stderr_text = proc.stderr
-            if _debug:
-                _debug["returncode"] = proc.returncode
+        converted_input = str(Path(input_path).resolve())
+        if solver.get("input_format") == "quickbb_cnf":
+            cnf_path = os.path.join(work_dir, iname + ".cnf")
+            pace_gr_to_quickbb_cnf(input_path, cnf_path)
+            converted_input = cnf_path
 
-        elif mode == "stdin_stdout_signal":
-            # Heuristic solver: run for `timeout` seconds, then send SIGTERM
-            with open(input_path) as fin:
-                proc = subprocess.Popen(
-                    cmd,
-                    shell=True,
-                    cwd=str(sdir),
-                    stdin=fin,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    preexec_fn=os.setsid,
-                )
-            try:
-                stdout, stderr_text = proc.communicate(timeout=timeout)
-            except subprocess.TimeoutExpired:
-                signal_timeout = True
-                os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
-                try:
-                    stdout, stderr_text = proc.communicate(timeout=5)
-                except subprocess.TimeoutExpired:
-                    os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
-                    stdout, stderr_text = proc.communicate(timeout=5)
-            if _debug:
-                _debug["returncode"] = proc.returncode
+        td_path = os.path.join(work_dir, iname + ".td")
+        # Internal solver time limits (e.g. quickbb --time) must expire before
+        # the outer wall-clock timeout, or the solver is killed before it can
+        # print the bound it already found.
+        timeout_soft = max(1, timeout - 10)
 
-        elif mode == "file":
-            proc = subprocess.run(
-                cmd,
-                shell=True,
-                cwd=str(sdir),
-                capture_output=True,
-                text=True,
-                timeout=timeout,
+        def q(value):
+            return shlex.quote(str(value))
+
+        cmd = cmd_template.format(
+            input=q(converted_input),
+            input_dir=q(input_dir),
+            instance_name=q(iname),
+            output_td=q(td_path),
+            output_dir=q(work_dir),
+            timeout=timeout,
+            timeout_soft=timeout_soft,
+        )
+        if _debug is not None:
+            _debug["command"] = cmd
+
+        try:
+            # stdin gets the converted input (not the original) so a stdin-mode
+            # solver with a format conversion still receives the converted data.
+            stdin_path = None if mode == "file" else converted_input
+            start_time = time.monotonic()
+            stdout, stderr_text, timed_out, returncode = _run_with_timeout(
+                cmd, str(sdir), stdin_path, timeout
             )
-            stdout = proc.stdout
-            stderr_text = proc.stderr
-            if _debug:
-                _debug["returncode"] = proc.returncode
-            # Try reading output from file
-            if os.path.exists(td_file.name) and os.path.getsize(td_file.name) > 0:
-                with open(td_file.name) as f:
-                    stdout = f.read()
-            # Also check for solver-specific output files (e.g. twalgor-rtw .twc)
-            for ext in [".twc", ".td"]:
-                alt = os.path.join(tempfile.gettempdir(), iname + ext)
-                if os.path.exists(alt) and os.path.getsize(alt) > 0:
-                    with open(alt) as f:
-                        stdout = f.read()
-                    cleanup_files.append(alt)
-                    break
+            elapsed = time.monotonic() - start_time
 
-        else:
-            with open(input_path) as fin:
-                proc = subprocess.run(
-                    cmd,
-                    shell=True,
-                    cwd=str(sdir),
-                    stdin=fin,
-                    capture_output=True,
-                    text=True,
-                    timeout=timeout,
-                )
-            stdout = proc.stdout
-            stderr_text = proc.stderr
-            if _debug:
-                _debug["returncode"] = proc.returncode
+            # Signal-protocol heuristics emit their best decomposition on
+            # SIGTERM, so a timeout there is expected and its flushed output is
+            # a valid result; for any other mode a timeout means "no answer".
+            signal_timeout = timed_out and mode == "stdin_stdout_signal"
+            result["time_sec"] = timeout if timed_out else round(elapsed, 3)
 
-        elapsed = time.monotonic() - start_time
-        result["time_sec"] = round(elapsed, 3)
+            if _debug is not None:
+                _debug["returncode"] = returncode
+                _debug["stderr"] = stderr_text
+                _debug["stdout_raw"] = stdout[:2000]
 
-        if _debug:
-            _debug["stderr"] = stderr_text
-            _debug["stdout_raw"] = stdout[:2000]
-
-        # Parse treewidth from output
-        td_info = parse_td_output(stdout)
-        if td_info:
-            result["treewidth"] = td_info["treewidth"]
-            result["status"] = "ok"
-        else:
-            # Try parsing just a number from stdout (some solvers output just the width)
-            for line in stdout.strip().split("\n"):
-                line = line.strip()
-                if line.isdigit():
-                    result["treewidth"] = int(line)
-                    result["status"] = "ok"
-                    break
+            if timed_out and not signal_timeout:
+                result["status"] = "timeout"
             else:
-                # If signal-based timeout occurred and no output, report as timeout
-                if mode == "stdin_stdout_signal" and signal_timeout:
-                    result["status"] = "timeout"
-                    result["time_sec"] = timeout
+                if mode == "file":
+                    stdout = _read_file_output(work_dir, iname, td_path, stdout)
+                td_info = parse_td_output(stdout)
+                if td_info:
+                    result["treewidth"] = td_info["treewidth"]
+                    result["status"] = "ok"
                 else:
-                    result["status"] = "parse_error"
-
-    except subprocess.TimeoutExpired:
-        result["time_sec"] = timeout
-        result["status"] = "timeout"
-    except Exception as e:
-        result["status"] = f"error: {str(e)[:100]}"
-        if _debug:
-            import traceback
-            _debug["stderr"] = traceback.format_exc()
+                    num = _first_int_line(stdout)
+                    if num is not None:
+                        result["treewidth"] = num
+                        result["status"] = "ok"
+                    elif signal_timeout:
+                        result["status"] = "timeout"
+                    else:
+                        result["status"] = "parse_error"
+        except Exception as e:
+            result["status"] = f"error: {str(e)[:100]}"
+            if _debug is not None:
+                import traceback
+                _debug["stderr"] = traceback.format_exc()
     finally:
-        for f in cleanup_files:
-            try:
-                os.unlink(f)
-            except OSError:
-                pass
+        shutil.rmtree(work_dir, ignore_errors=True)
 
     if _debug is not None:
         result["_debug"] = _debug
