@@ -206,7 +206,8 @@ def main():
             r = _run_one(item)
             results.append(r)
             tw = r["treewidth"] if r["treewidth"] is not None else "-"
-            print(f" tw={tw} t={r['time_sec']}s [{r['status']}]")
+            t = r["time_sec"] if r["time_sec"] is not None else "-"
+            print(f" tw={tw} t={t}s [{r['status']}]")
             if args.debug:
                 _print_debug(r)
     else:
@@ -220,9 +221,10 @@ def main():
                 r = future.result()
                 results.append(r)
                 tw = r["treewidth"] if r["treewidth"] is not None else "-"
+                t = r["time_sec"] if r["time_sec"] is not None else "-"
                 print(
                     f"[{done}/{total}] {solver_name} on {bench_name}/{inst_name}"
-                    f" tw={tw} t={r['time_sec']}s [{r['status']}]",
+                    f" tw={tw} t={t}s [{r['status']}]",
                     flush=True,
                 )
                 if args.debug:
