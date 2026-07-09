@@ -139,9 +139,10 @@
     "language": "julia",
     "repo": "https://github.com/ArrogantGao/TreeWidthSolver.jl.git",
     "build_steps": [
-      "julia -e 'using Pkg; Pkg.activate(\".\"); Pkg.instantiate()'"
+      "julia -e 'using Pkg; Pkg.activate(\".\"); Pkg.instantiate()'",
+      "cp ../../config/run_wrapper.jl run_wrapper.jl"
     ],
-    "run_command": "julia --project=. -e 'using TreeWidthSolver; include(\"run_wrapper.jl\")' {input}",
+    "run_command": "julia --project=. run_wrapper.jl {input}",
     "run_mode": "file",
     "input_format": "pace_gr",
     "output_format": "pace_td",
