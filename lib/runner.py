@@ -7,6 +7,7 @@ import shutil
 import signal
 import subprocess
 import tempfile
+import threading
 import time
 from pathlib import Path
 
@@ -30,13 +31,54 @@ def _kill_group(proc, sig):
         pass
 
 
+def _group_rss_kb(pgid):
+    """Sum the resident set size (kB) of every process in process group pgid.
+
+    Linux-only (reads /proc); returns 0 on any other platform or on error.
+    """
+    total = 0
+    try:
+        entries = os.listdir("/proc")
+    except OSError:
+        return 0
+    for entry in entries:
+        if not entry.isdigit():
+            continue
+        try:
+            with open(f"/proc/{entry}/stat") as f:
+                data = f.read()
+            # Fields after the ")" of comm are: state ppid pgrp ...
+            after = data[data.rfind(")") + 2:].split()
+            if int(after[2]) != pgid:
+                continue
+            with open(f"/proc/{entry}/status") as f:
+                for line in f:
+                    if line.startswith("VmRSS:"):
+                        total += int(line.split()[1])
+                        break
+        except (OSError, ValueError, IndexError):
+            continue
+    return total
+
+
+def _sample_peak_rss(pgid, stop_event, holder):
+    """Poll the process group's RSS until stopped, storing the peak (kB)."""
+    peak = 0
+    while not stop_event.is_set():
+        peak = max(peak, _group_rss_kb(pgid))
+        stop_event.wait(0.1)
+    peak = max(peak, _group_rss_kb(pgid))
+    holder[0] = peak
+
+
 def _run_with_timeout(cmd, cwd, stdin_path, timeout):
-    """Run cmd in its own process group; return (stdout, stderr, timed_out, rc).
+    """Run cmd in its own process group; return (stdout, stderr, timed_out, rc, peak_mb).
 
     The child is started as a session/group leader (os.setsid) so that on
     timeout the entire group -- including grandchildren such as the JVM that
     solver wrapper scripts spawn -- is terminated with SIGTERM then SIGKILL,
-    rather than leaving orphaned processes competing for CPU and memory.
+    rather than leaving orphaned processes competing for CPU and memory. A
+    background thread samples the group's peak resident memory while it runs.
     """
     fin = open(stdin_path) if stdin_path else None
     try:
@@ -54,6 +96,14 @@ def _run_with_timeout(cmd, cwd, stdin_path, timeout):
         if fin is not None:
             fin.close()
 
+    # os.setsid makes the child the leader of a new group whose id == its pid.
+    stop_event = threading.Event()
+    holder = [0]
+    sampler = threading.Thread(
+        target=_sample_peak_rss, args=(proc.pid, stop_event, holder), daemon=True
+    )
+    sampler.start()
+
     timed_out = False
     try:
         stdout, stderr = proc.communicate(timeout=timeout)
@@ -68,7 +118,12 @@ def _run_with_timeout(cmd, cwd, stdin_path, timeout):
                 stdout, stderr = proc.communicate(timeout=5)
             except subprocess.TimeoutExpired:
                 stdout, stderr = "", ""
-    return stdout, stderr, timed_out, proc.returncode
+    finally:
+        stop_event.set()
+        sampler.join(timeout=1)
+
+    peak_mb = round(holder[0] / 1024.0, 1) if holder[0] else None
+    return stdout, stderr, timed_out, proc.returncode, peak_mb
 
 
 def _read_file_output(work_dir, iname, td_path, stdout):
@@ -182,7 +237,7 @@ def run_solver(solver_name, input_path, timeout=300, use_heuristic=False, debug=
             # solver with a format conversion still receives the converted data.
             stdin_path = None if mode == "file" else converted_input
             start_time = time.monotonic()
-            stdout, stderr_text, timed_out, returncode = _run_with_timeout(
+            stdout, stderr_text, timed_out, returncode, peak_mb = _run_with_timeout(
                 cmd, str(sdir), stdin_path, timeout
             )
             elapsed = time.monotonic() - start_time
@@ -192,6 +247,7 @@ def run_solver(solver_name, input_path, timeout=300, use_heuristic=False, debug=
             # a valid result; for any other mode a timeout means "no answer".
             signal_timeout = timed_out and mode == "stdin_stdout_signal"
             result["time_sec"] = timeout if timed_out else round(elapsed, 3)
+            result["memory_mb"] = peak_mb
 
             if _debug is not None:
                 _debug["returncode"] = returncode
