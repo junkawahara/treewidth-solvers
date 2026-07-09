@@ -97,6 +97,16 @@ flowcutter-17,pace2017-instances,ex001,100,250,12,0.523,ok,
 tamaki-2017,pace2017-instances,ex001,100,250,12,1.234,ok,
 ```
 
+## Tests
+
+Unit tests for the pure-Python helpers (parsing, format conversion, tree
+decomposition validation) run against the small reference graphs in `tests/`
+(`k4.gr`, `cycle5.gr`, `path4.gr`), and need no solvers installed:
+
+```bash
+pytest tests/            # or: python tests/test_libs.py
+```
+
 ## PACE .gr Format
 
 Standard input format for graphs:

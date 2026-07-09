@@ -97,6 +97,16 @@ flowcutter-17,pace2017-instances,ex001,100,250,12,0.523,ok,
 tamaki-2017,pace2017-instances,ex001,100,250,12,1.234,ok,
 ```
 
+## テスト
+
+純 Python のヘルパー（パース、フォーマット変換、木分解の検証）に対する単体テストは、
+`tests/` 内の小さな参照グラフ（`k4.gr`, `cycle5.gr`, `path4.gr`）を用いて実行でき、
+ソルバーのインストールは不要です:
+
+```bash
+pytest tests/            # または: python tests/test_libs.py
+```
+
 ## PACE .gr フォーマット
 
 入力グラフの標準形式:
