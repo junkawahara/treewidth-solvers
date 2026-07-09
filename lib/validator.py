@@ -134,5 +134,24 @@ def validate(graph_path, td_text):
             errors.append(f"Bags for vertex {v} are not connected")
 
     treewidth = max(len(vset) for vset in bags.values()) - 1
+
+    # Check 4: the "s td" header must agree with the actual decomposition. A
+    # mismatch (wrong bag count, wrong declared width, wrong vertex count)
+    # signals a malformed or dishonest output, which PACE's td-validate rejects.
+    if n_bags != len(bags):
+        errors.append(
+            f"Header declares {n_bags} bags but {len(bags)} are present"
+        )
+    if td_n != n:
+        errors.append(
+            f"Header declares {td_n} vertices but the graph has {n}"
+        )
+    max_bag = max(len(vset) for vset in bags.values())
+    if width_plus_one != max_bag:
+        errors.append(
+            f"Header declares width+1={width_plus_one} but the largest bag has "
+            f"{max_bag} vertices"
+        )
+
     is_valid = len(errors) == 0
     return is_valid, treewidth, errors
