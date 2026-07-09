@@ -14,6 +14,9 @@ CONFIG_FILE = BASE_DIR / "config" / "solvers.json"
 # Marker file written into a solver directory once its build has succeeded, so
 # is_installed reports a solver as usable only when its binaries actually exist.
 BUILD_MARKER = ".tw_build_complete"
+# Marker written once a clone has fully completed, so an interrupted clone
+# (partial directory) is detected and retried rather than trusted forever.
+DOWNLOAD_MARKER = ".tw_download_complete"
 
 
 def load_solvers():
@@ -61,8 +64,13 @@ def download_solver(solver):
     name = solver["name"]
     dest = solver_dir(name)
     if dest.exists():
-        print(f"  [{name}] Already downloaded, skipping clone")
-        return True
+        if (dest / DOWNLOAD_MARKER).exists():
+            print(f"  [{name}] Already downloaded, skipping clone")
+            return True
+        # Directory exists without the completion marker: a previous clone was
+        # interrupted. Remove the partial tree and clone again from scratch.
+        print(f"  [{name}] Removing incomplete download and re-cloning")
+        shutil.rmtree(dest, ignore_errors=True)
     print(f"  [{name}] Cloning {solver['repo']} ...")
     try:
         subprocess.run(
@@ -71,6 +79,7 @@ def download_solver(solver):
             capture_output=True,
             text=True,
         )
+        (dest / DOWNLOAD_MARKER).write_text("ok\n")
         return True
     except subprocess.CalledProcessError as e:
         print(f"  [{name}] Clone failed: {e.stderr.strip()}")
