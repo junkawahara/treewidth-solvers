@@ -231,6 +231,10 @@ def main():
                     _print_debug(r)
 
     # Write results
+    if not results:
+        print("\nNo instances were run; no results file written.")
+        return
+
     if args.output:
         output_path = args.output
     else:
