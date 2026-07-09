@@ -176,7 +176,7 @@ def main():
     work = []
     for bench_name in benchmarks:
         instances = list_instances(bench_name)
-        if args.max_instances:
+        if args.max_instances is not None:
             instances = instances[: args.max_instances]
         for solver_name in solvers:
             for inst in instances:
