@@ -48,8 +48,11 @@ def resolve_benchmarks(names):
 
 def _run_one(args):
     """Wrapper for process pool."""
-    solver_name, instance_path, timeout, bench_name, use_heuristic, debug = args
-    result = run_solver(solver_name, instance_path, timeout, use_heuristic, debug=debug)
+    solver_name, instance_path, timeout, bench_name, use_heuristic, debug, validate = args
+    result = run_solver(
+        solver_name, instance_path, timeout, use_heuristic,
+        debug=debug, validate=validate,
+    )
     result["benchmark_set"] = bench_name
     return result
 
@@ -139,6 +142,11 @@ def main():
         help="Print diagnostic info (command, stderr, stdout) for failed runs",
     )
     parser.add_argument(
+        "--validate",
+        action="store_true",
+        help="Validate emitted tree decompositions; mark invalid ones as 'invalid'",
+    )
+    parser.add_argument(
         "--list", action="store_true", help="List installed solvers and benchmarks"
     )
     args = parser.parse_args()
@@ -179,7 +187,10 @@ def main():
         for solver_name in solvers:
             for inst in instances:
                 work.append(
-                    (solver_name, inst, args.timeout, bench_name, args.heuristic, args.debug)
+                    (
+                        solver_name, inst, args.timeout, bench_name,
+                        args.heuristic, args.debug, args.validate,
+                    )
                 )
 
     total = len(work)
@@ -193,7 +204,7 @@ def main():
 
     if args.jobs == 1:
         for item in work:
-            solver_name, inst, _, bench_name, _, _ = item
+            solver_name, inst, _, bench_name, _, _, _ = item
             inst_name = Path(inst).stem
             done += 1
             print(
@@ -213,7 +224,7 @@ def main():
             futures = {pool.submit(_run_one, item): item for item in work}
             for future in as_completed(futures):
                 item = futures[future]
-                solver_name, inst, _, bench_name, _, _ = item
+                solver_name, inst, _, bench_name, _, _, _ = item
                 inst_name = Path(inst).stem
                 done += 1
                 r = future.result()

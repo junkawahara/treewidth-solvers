@@ -17,6 +17,7 @@ from lib.format_converter import (
     parse_td_output,
 )
 from lib.solver_registry import get_solver, solver_dir
+from lib.validator import validate as validate_decomposition
 
 
 def _kill_group(proc, sig):
@@ -148,7 +149,24 @@ def _first_int_line(text):
     return None
 
 
-def run_solver(solver_name, input_path, timeout=300, use_heuristic=False, debug=False):
+def _is_full_td(text):
+    """True if text looks like a complete decomposition (header plus bags)."""
+    has_header = has_bag = False
+    for line in text.splitlines():
+        s = line.strip()
+        if s.startswith("s td"):
+            has_header = True
+        elif s.startswith("b "):
+            has_bag = True
+        if has_header and has_bag:
+            return True
+    return False
+
+
+def run_solver(
+    solver_name, input_path, timeout=300, use_heuristic=False, debug=False,
+    validate=False,
+):
     """Run a solver on a single instance.
 
     Returns dict with keys:
@@ -272,6 +290,16 @@ def run_solver(solver_name, input_path, timeout=300, use_heuristic=False, debug=
                         result["status"] = "timeout"
                     else:
                         result["status"] = "parse_error"
+
+                # Optionally verify that an emitted full decomposition is valid.
+                # Width-only outputs (a bare number, "c width", "Treewidth=")
+                # carry no bags and cannot be checked, so they are left as-is.
+                if validate and result["status"] == "ok" and _is_full_td(stdout):
+                    is_valid, _tw, verrors = validate_decomposition(input_path, stdout)
+                    if not is_valid:
+                        result["status"] = "invalid"
+                        if _debug is not None:
+                            _debug["validation_errors"] = verrors
         except Exception as e:
             result["status"] = f"error: {str(e)[:100]}"
             if _debug is not None:
