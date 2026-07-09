@@ -10,14 +10,12 @@ from pathlib import Path
 from lib.benchmark_registry import (
     list_instances,
     list_installed as list_installed_benchmarks,
-    load_benchmarks,
 )
 from lib.runner import run_solver, write_csv
 from lib.solver_registry import (
     get_solver,
     is_installed,
     list_installed as list_installed_solvers,
-    load_solvers,
 )
 
 
