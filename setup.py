@@ -58,6 +58,7 @@ def main():
 
     solver_results = {}
     bench_results = {}
+    unknown = []
 
     # Setup solvers
     if args.all or args.solvers_only:
@@ -71,6 +72,7 @@ def main():
         for name in args.solver:
             if name not in solver_map:
                 print(f"Unknown solver: {name}")
+                unknown.append(name)
                 continue
             print(f"\n--- Setting up solver: {name} ---")
             solver_results[name] = setup_solver(solver_map[name])
@@ -87,6 +89,7 @@ def main():
         for name in args.benchmark:
             if name not in bench_map:
                 print(f"Unknown benchmark: {name}")
+                unknown.append(name)
                 continue
             print(f"\n--- Downloading benchmark: {name} ---")
             bench_results[name] = download_benchmark(bench_map[name])
@@ -105,6 +108,12 @@ def main():
         for name, ok in bench_results.items():
             status = "OK" if ok else "FAILED"
             print(f"  {name:25s} {status}")
+
+    # Exit non-zero if anything failed or an unknown name was given, so callers
+    # (CI, shell scripts) can detect the failure.
+    failed = [n for n, ok in {**solver_results, **bench_results}.items() if not ok]
+    if failed or unknown:
+        sys.exit(1)
 
 
 if __name__ == "__main__":
