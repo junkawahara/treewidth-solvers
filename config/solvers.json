@@ -125,7 +125,7 @@
       "./configure",
       "make"
     ],
-    "run_command": "./src/quickbb --min-fill-ordering --time {timeout} --cnffile {input}",
+    "run_command": "./src/quickbb --min-fill-ordering --time {timeout_soft} --cnffile {input}",
     "run_mode": "file",
     "input_format": "quickbb_cnf",
     "output_format": "quickbb",
