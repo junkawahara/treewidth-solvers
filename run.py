@@ -11,7 +11,7 @@ from lib.benchmark_registry import (
     list_instances,
     list_installed as list_installed_benchmarks,
 )
-from lib.runner import run_solver, write_csv
+from lib.runner import ResultWriter, run_solver
 from lib.solver_registry import (
     get_solver,
     is_installed,
@@ -55,6 +55,22 @@ def _run_one(args):
     )
     result["benchmark_set"] = bench_name
     return result
+
+
+def _error_result(item, exc):
+    """Result row for a work item whose worker raised instead of returning."""
+    solver_name, instance_path, _, bench_name, _, _, _ = item
+    return {
+        "solver": solver_name,
+        "benchmark_set": bench_name,
+        "instance": Path(instance_path).stem,
+        "vertices": None,
+        "edges": None,
+        "treewidth": None,
+        "time_sec": None,
+        "status": f"error: {type(exc).__name__}: {str(exc)[:80]}",
+        "memory_mb": None,
+    }
 
 
 def _print_debug(result):
@@ -198,50 +214,8 @@ def main():
     print(f"Total jobs: {total}, timeout: {args.timeout}s, parallelism: {args.jobs}")
     print()
 
-    # Run benchmarks
-    results = []
-    done = 0
-
-    if args.jobs == 1:
-        for item in work:
-            solver_name, inst, _, bench_name, _, _, _ = item
-            inst_name = Path(inst).stem
-            done += 1
-            print(
-                f"[{done}/{total}] {solver_name} on {bench_name}/{inst_name} ...",
-                end="",
-                flush=True,
-            )
-            r = _run_one(item)
-            results.append(r)
-            tw = r["treewidth"] if r["treewidth"] is not None else "-"
-            t = r["time_sec"] if r["time_sec"] is not None else "-"
-            print(f" tw={tw} t={t}s [{r['status']}]")
-            if args.debug:
-                _print_debug(r)
-    else:
-        with ProcessPoolExecutor(max_workers=args.jobs) as pool:
-            futures = {pool.submit(_run_one, item): item for item in work}
-            for future in as_completed(futures):
-                item = futures[future]
-                solver_name, inst, _, bench_name, _, _, _ = item
-                inst_name = Path(inst).stem
-                done += 1
-                r = future.result()
-                results.append(r)
-                tw = r["treewidth"] if r["treewidth"] is not None else "-"
-                t = r["time_sec"] if r["time_sec"] is not None else "-"
-                print(
-                    f"[{done}/{total}] {solver_name} on {bench_name}/{inst_name}"
-                    f" tw={tw} t={t}s [{r['status']}]",
-                    flush=True,
-                )
-                if args.debug:
-                    _print_debug(r)
-
-    # Write results
-    if not results:
-        print("\nNo instances were run; no results file written.")
+    if total == 0:
+        print("No instances were run; no results file written.")
         return
 
     if args.output:
@@ -250,15 +224,68 @@ def main():
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
         output_path = f"results/{timestamp}.csv"
 
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    write_csv(results, output_path)
-    print(f"\nResults written to: {output_path}")
+    # Results are appended to the CSV as each job finishes, so an interrupted
+    # or crashed run still leaves every completed result on disk.
+    results = []
+    interrupted = False
+    with ResultWriter(output_path) as writer:
+        print(f"Writing results to: {output_path}\n")
+
+        def record(item, r):
+            solver_name, inst, _, bench_name, _, _, _ = item
+            inst_name = Path(inst).stem
+            results.append(r)
+            writer.write(r)
+            tw = r["treewidth"] if r["treewidth"] is not None else "-"
+            t = r["time_sec"] if r["time_sec"] is not None else "-"
+            print(
+                f"[{len(results)}/{total}] {solver_name} on {bench_name}/{inst_name}"
+                f" tw={tw} t={t}s [{r['status']}]",
+                flush=True,
+            )
+            if args.debug:
+                _print_debug(r)
+
+        try:
+            if args.jobs == 1:
+                for item in work:
+                    record(item, _run_one(item))
+            else:
+                with ProcessPoolExecutor(max_workers=args.jobs) as pool:
+                    futures = {pool.submit(_run_one, item): item for item in work}
+                    try:
+                        for future in as_completed(futures):
+                            item = futures[future]
+                            try:
+                                r = future.result()
+                            except Exception as e:
+                                # One crashed worker must not abort the run or
+                                # discard the other results; log it as a row.
+                                r = _error_result(item, e)
+                            record(item, r)
+                    except KeyboardInterrupt:
+                        for f in futures:
+                            f.cancel()
+                        pool.shutdown(wait=False)
+                        raise
+        except KeyboardInterrupt:
+            interrupted = True
+
+    if interrupted:
+        print(
+            f"\nInterrupted: {len(results)} of {total} result(s) were written to "
+            f"{output_path}"
+        )
+    else:
+        print(f"\nResults written to: {output_path}")
 
     # Summary
     ok_count = sum(1 for r in results if r["status"] == "ok")
     timeout_count = sum(1 for r in results if r["status"] == "timeout")
-    error_count = total - ok_count - timeout_count
+    error_count = len(results) - ok_count - timeout_count
     print(f"Summary: {ok_count} ok, {timeout_count} timeout, {error_count} error")
+    if interrupted:
+        sys.exit(130)
 
 
 if __name__ == "__main__":

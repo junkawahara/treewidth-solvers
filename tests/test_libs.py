@@ -18,6 +18,7 @@ from lib.format_converter import (  # noqa: E402
     parse_td_output,
     read_pace_gr,
 )
+from lib.runner import CSV_FIELDS, ResultWriter, write_csv  # noqa: E402
 from lib.validator import validate  # noqa: E402
 from lib.clone_check import (  # noqa: E402
     adopt_or_reject_existing,
@@ -77,6 +78,40 @@ def test_parse_quickbb_stat_distinguishes_proven_from_timed_out():
     assert parse_quickbb_stat(text)["optimal"] is True
     assert parse_quickbb_stat("") is None
     assert parse_quickbb_stat("Treewidth= 5\n") is None
+
+
+def _row(instance, status="ok", tw=1):
+    return {"solver": "s", "benchmark_set": "b", "instance": instance,
+            "vertices": 4, "edges": 3, "treewidth": tw, "time_sec": 0.5,
+            "status": status, "memory_mb": None}
+
+
+def test_result_writer_flushes_each_row_before_close(tmp_path):
+    out = tmp_path / "sub" / "r.csv"  # parent dir is created on demand
+    w = ResultWriter(out)
+    w.write(_row("a"))
+    w.write(_row("b", status="timeout", tw=None))
+    # Still open, but everything written so far must already be on disk so an
+    # interrupted run loses nothing.
+    lines = out.read_text().splitlines()
+    assert lines[0] == ",".join(CSV_FIELDS)
+    assert lines[1].startswith("s,b,a,4,3,1,0.5,ok,")
+    assert lines[2].startswith("s,b,b,4,3,,0.5,timeout,")
+    assert len(lines) == 3 and w.count == 2
+    w.close()
+    w.close()  # idempotent
+
+
+def test_write_csv_matches_incremental_writer(tmp_path):
+    a, b = tmp_path / "a.csv", tmp_path / "b.csv"
+    rows = [_row("x"), _row("y", status="error: boom", tw=None)]
+    write_csv(rows, a)
+    with ResultWriter(b) as w:
+        for r in rows:
+            w.write(r)
+    assert a.read_text() == b.read_text()
+    write_csv([], tmp_path / "none.csv")
+    assert not (tmp_path / "none.csv").exists()
 
 
 def test_validate_accepts_correct_path_decomposition():

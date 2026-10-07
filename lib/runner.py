@@ -343,23 +343,59 @@ def run_solver(
     return result
 
 
+CSV_FIELDS = [
+    "solver",
+    "benchmark_set",
+    "instance",
+    "vertices",
+    "edges",
+    "treewidth",
+    "time_sec",
+    "status",
+    "memory_mb",
+]
+
+
+class ResultWriter:
+    """Append results to a CSV file one row at a time.
+
+    Each row is flushed to disk as soon as it is written, so a run that is
+    interrupted (Ctrl-C, a crashed worker, a killed shell) keeps every result
+    collected so far instead of losing hours of work to a write that only
+    happened at the very end.
+    """
+
+    def __init__(self, output_path):
+        self.path = str(output_path)
+        self.count = 0
+        Path(self.path).parent.mkdir(parents=True, exist_ok=True)
+        self._f = open(self.path, "w", newline="")
+        self._writer = csv.DictWriter(self._f, fieldnames=CSV_FIELDS)
+        self._writer.writeheader()
+        self._f.flush()
+
+    def write(self, result):
+        self._writer.writerow({k: result.get(k) for k in CSV_FIELDS})
+        self._f.flush()
+        self.count += 1
+
+    def close(self):
+        if self._f is not None:
+            self._f.close()
+            self._f = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+        return False
+
+
 def write_csv(results, output_path):
-    """Write benchmark results to CSV."""
+    """Write benchmark results to CSV in one go."""
     if not results:
         return
-    fieldnames = [
-        "solver",
-        "benchmark_set",
-        "instance",
-        "vertices",
-        "edges",
-        "treewidth",
-        "time_sec",
-        "status",
-        "memory_mb",
-    ]
-    with open(output_path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
+    with ResultWriter(output_path) as w:
         for r in results:
-            writer.writerow({k: r.get(k) for k in fieldnames})
+            w.write(r)
