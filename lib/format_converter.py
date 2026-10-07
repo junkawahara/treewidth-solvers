@@ -69,6 +69,31 @@ def get_graph_info(filepath):
     return {"vertices": n, "edges": len(edges)}
 
 
+def parse_quickbb_stat(text):
+    """Parse a quickbb --statfile line and report whether the bound is proven.
+
+    quickbb writes one space-separated row per run:
+      <n> <m> <lb> <bound> <time> <nodes_visited> <nodes_pruned> <optimal>
+    where <optimal> is 1 if the branch-and-bound finished and 0 if it stopped
+    at its --time limit, in which case <bound> is only an upper bound. The
+    "Treewidth=" line on stdout is printed in both cases, so this file is the
+    only way to tell a proven treewidth from a timed-out bound.
+
+    Returns {"bound": int, "optimal": bool} for the last complete row, or
+    None if no such row exists.
+    """
+    parsed = None
+    for line in text.strip().splitlines():
+        parts = line.split()
+        if len(parts) < 8:
+            continue
+        try:
+            parsed = {"bound": int(parts[3]), "optimal": parts[7] == "1"}
+        except ValueError:
+            continue
+    return parsed
+
+
 def parse_td_output(text):
     """Parse tree decomposition output (.td format) and extract treewidth.
 

@@ -14,6 +14,7 @@ from pathlib import Path
 from lib.format_converter import (
     get_graph_info,
     pace_gr_to_quickbb_cnf,
+    parse_quickbb_stat,
     parse_td_output,
 )
 from lib.solver_registry import get_solver, solver_dir
@@ -140,6 +141,14 @@ def _read_file_output(work_dir, iname, td_path, stdout):
     return stdout
 
 
+def _read_quickbb_stat(stat_path):
+    """Parse quickbb's --statfile if it was written; None if absent/unusable."""
+    if not os.path.exists(stat_path):
+        return None
+    with open(stat_path) as f:
+        return parse_quickbb_stat(f.read())
+
+
 def _first_int_line(text):
     """Return the first line that is a bare integer, or None."""
     for line in text.strip().split("\n"):
@@ -230,6 +239,9 @@ def run_solver(
             converted_input = cnf_path
 
         td_path = os.path.join(work_dir, iname + ".td")
+        # Side file for solvers that report run statistics separately from
+        # the answer (quickbb --statfile); never read as a decomposition.
+        stat_path = os.path.join(work_dir, iname + ".stat")
         # Internal solver time limits (e.g. quickbb --time) must expire before
         # the outer wall-clock timeout, or the solver is killed before it can
         # print the bound it already found.
@@ -243,6 +255,7 @@ def run_solver(
             input_dir=q(input_dir),
             instance_name=q(iname),
             output_td=q(td_path),
+            output_stat=q(stat_path),
             output_dir=q(work_dir),
             timeout=timeout,
             timeout_soft=timeout_soft,
@@ -290,6 +303,22 @@ def run_solver(
                         result["status"] = "timeout"
                     else:
                         result["status"] = "parse_error"
+
+                # quickbb prints "Treewidth= <bound>" even when it stopped at
+                # its --time limit, in which case the value is only an upper
+                # bound. Only its stat file says whether the search finished,
+                # so an unproven bound is downgraded to a timeout rather than
+                # being recorded as the exact treewidth.
+                if solver.get("output_format") == "quickbb" and result["status"] == "ok":
+                    stat = _read_quickbb_stat(stat_path)
+                    if _debug is not None:
+                        _debug["quickbb_stat"] = stat
+                    if stat is None:
+                        result["status"] = "parse_error"
+                        result["treewidth"] = None
+                    elif not stat["optimal"]:
+                        result["status"] = "timeout"
+                        result["treewidth"] = None
 
                 # Optionally verify that an emitted full decomposition is valid.
                 # Width-only outputs (a bare number, "c width", "Treewidth=")

@@ -14,10 +14,15 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lib.format_converter import (  # noqa: E402
     get_graph_info,
     pace_gr_to_quickbb_cnf,
+    parse_quickbb_stat,
     parse_td_output,
     read_pace_gr,
 )
 from lib.validator import validate  # noqa: E402
+from lib.clone_check import (  # noqa: E402
+    adopt_or_reject_existing,
+    is_complete_clone,
+)
 
 TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -59,6 +64,21 @@ def test_parse_td_output_formats():
     assert parse_td_output("garbage") is None
 
 
+def test_parse_quickbb_stat_distinguishes_proven_from_timed_out():
+    # n m lb bound time visited pruned optimal
+    assert parse_quickbb_stat("27 135 0 17 0.33 120 45 1\n") == {
+        "bound": 17, "optimal": True,
+    }
+    assert parse_quickbb_stat("70 105 0 16 29.3 9000 100 0\n") == {
+        "bound": 16, "optimal": False,
+    }
+    # Appended runs: the last complete row wins; junk rows are skipped.
+    text = "1 2 3\n70 105 0 16 29.3 9000 100 0\n27 135 0 17 0.33 120 45 1\n"
+    assert parse_quickbb_stat(text)["optimal"] is True
+    assert parse_quickbb_stat("") is None
+    assert parse_quickbb_stat("Treewidth= 5\n") is None
+
+
 def test_validate_accepts_correct_path_decomposition():
     td = "s td 3 2 4\nb 1 1 2\nb 2 2 3\nb 3 3 4\n1 2\n2 3\n"
     is_valid, treewidth, errors = validate(_gr("path4.gr"), td)
@@ -80,6 +100,61 @@ def test_validate_rejects_non_tree():
     is_valid, _tw, errors = validate(_gr("path4.gr"), td)
     assert not is_valid
     assert any("tree" in e for e in errors)
+
+
+def _git(path, *args):
+    import subprocess
+
+    subprocess.run(
+        ["git", "-C", str(path), *args], check=True, capture_output=True,
+        env={**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@x",
+             "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@x"},
+    )
+
+
+def _make_repo(path):
+    path.mkdir()
+    _git(path, "init", "-q")
+    (path / "a.txt").write_text("a\n")
+    _git(path, "add", "a.txt")
+    _git(path, "commit", "-q", "-m", "init")
+
+
+def test_complete_clone_without_marker_is_adopted_not_deleted(tmp_path):
+    repo = tmp_path / "repo"
+    _make_repo(repo)
+    (repo / "built.bin").write_text("binary\n")  # untracked build product
+    (repo / "a.txt").write_text("patched\n")  # local modification
+    assert is_complete_clone(repo)
+    assert adopt_or_reject_existing(repo, ".marker", "repo") == "adopted"
+    assert (repo / ".marker").exists()
+    assert (repo / "built.bin").exists()
+
+
+def test_interrupted_checkout_is_incomplete(tmp_path):
+    repo = tmp_path / "repo"
+    _make_repo(repo)
+    (repo / "a.txt").unlink()  # tracked file missing: checkout never finished
+    assert not is_complete_clone(repo)
+    assert adopt_or_reject_existing(repo, ".marker", "repo") == "incomplete"
+    assert not (repo / ".marker").exists()
+
+
+def test_interrupted_fetch_is_incomplete(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q")  # .git exists but HEAD resolves to nothing
+    assert not is_complete_clone(repo)
+    assert adopt_or_reject_existing(repo, ".marker", "repo") == "incomplete"
+
+
+def test_plain_directory_is_foreign_and_kept(tmp_path):
+    d = tmp_path / "manual"
+    d.mkdir()
+    (d / "x.gr").write_text("p tw 1 0\n")
+    assert adopt_or_reject_existing(d, ".marker", "manual") == "foreign"
+    assert (d / "x.gr").exists()
+    assert not (d / ".marker").exists()
 
 
 def _run_all():
