@@ -8,8 +8,12 @@ Supported formats:
 from pathlib import Path
 
 
-def read_pace_gr(filepath):
-    """Read a PACE .gr file and return (n_vertices, edges).
+def _scan_pace_gr(filepath, on_edge=None):
+    """Stream through a PACE .gr file; return (n_vertices, n_edges).
+
+    Calls on_edge(u, v) for every edge line when given. Nothing is retained
+    otherwise, so counting a multi-hundred-megabyte road graph needs no more
+    memory than one line.
 
     Raises ValueError if the file has no problem line or if the number of edge
     lines does not match the count declared on the "p" line -- a truncated or
@@ -17,7 +21,7 @@ def read_pace_gr(filepath):
     """
     n = 0
     m = None
-    edges = []
+    count = 0
     with open(filepath) as f:
         for line in f:
             line = line.strip()
@@ -30,13 +34,26 @@ def read_pace_gr(filepath):
             else:
                 parts = line.split()
                 u, v = int(parts[0]), int(parts[1])
-                edges.append((u, v))
+                count += 1
+                if on_edge is not None:
+                    on_edge(u, v)
     if m is None:
         raise ValueError(f"{filepath}: missing 'p' problem line")
-    if len(edges) != m:
+    if count != m:
         raise ValueError(
-            f"{filepath}: declared {m} edges but found {len(edges)}"
+            f"{filepath}: declared {m} edges but found {count}"
         )
+    return n, count
+
+
+def read_pace_gr(filepath):
+    """Read a PACE .gr file and return (n_vertices, edges).
+
+    Use get_graph_info when only the counts are needed; this materialises
+    every edge in memory. Raises ValueError as described in _scan_pace_gr.
+    """
+    edges = []
+    n, _ = _scan_pace_gr(filepath, lambda u, v: edges.append((u, v)))
     return n, edges
 
 
@@ -64,9 +81,9 @@ def pace_gr_to_quickbb_cnf(input_path, output_path):
 
 
 def get_graph_info(filepath):
-    """Get basic graph statistics from a .gr file."""
-    n, edges = read_pace_gr(filepath)
-    return {"vertices": n, "edges": len(edges)}
+    """Get basic graph statistics from a .gr file without storing its edges."""
+    n, m = _scan_pace_gr(filepath)
+    return {"vertices": n, "edges": m}
 
 
 def parse_quickbb_stat(text):

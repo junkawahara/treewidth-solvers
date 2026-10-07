@@ -39,6 +39,57 @@ def test_read_pace_gr_counts():
     assert get_graph_info(_gr("path4.gr")) == {"vertices": 4, "edges": 3}
 
 
+def test_get_graph_info_streams_without_storing_edges(tmp_path):
+    """Counting must not materialise the edge list (road graphs are huge)."""
+    import tracemalloc
+
+    gr = tmp_path / "big.gr"
+    m = 200_000
+    with open(gr, "w") as f:
+        f.write(f"p tw {m + 1} {m}\n")
+        f.writelines(f"{i} {i + 1}\n" for i in range(1, m + 1))
+    tracemalloc.start()
+    info = get_graph_info(str(gr))
+    _cur, peak_info = tracemalloc.get_traced_memory()
+    tracemalloc.reset_peak()
+    n, edges = read_pace_gr(str(gr))
+    _cur, peak_read = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+    assert info == {"vertices": m + 1, "edges": m} and (n, len(edges)) == (m + 1, m)
+    # The full read holds ~m tuples; the count must stay far below that.
+    assert peak_info < peak_read / 10, (peak_info, peak_read)
+
+
+def test_get_graph_info_rejects_malformed_files(tmp_path):
+    bad = tmp_path / "bad.gr"
+    bad.write_text("p tw 4 6\n1 2\n2 3\n")
+    try:
+        get_graph_info(str(bad))
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("expected ValueError on edge-count mismatch")
+    nop = tmp_path / "nop.gr"
+    nop.write_text("1 2\n")
+    try:
+        get_graph_info(str(nop))
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("expected ValueError on missing p line")
+
+
+def test_run_solver_uses_precomputed_graph_info(tmp_path):
+    """A read error recorded up front is reported without re-reading the file."""
+    missing = str(tmp_path / "does-not-exist.gr")
+    r = runner.run_solver(
+        "flowcutter-17", missing, timeout=1,
+        graph_info=ValueError("declared 6 edges but found 2"),
+    )
+    assert r["status"] == "error: declared 6 edges but found 2"
+    assert r["vertices"] is None and r["treewidth"] is None
+
+
 def test_read_pace_gr_rejects_edge_count_mismatch(tmp_path):
     bad = tmp_path / "bad.gr"
     bad.write_text("p tw 4 6\n1 2\n2 3\n")  # declares 6 edges, lists 2

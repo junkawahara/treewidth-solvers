@@ -13,6 +13,7 @@ from lib.benchmark_registry import (
     list_instances,
     list_installed as list_installed_benchmarks,
 )
+from lib.format_converter import get_graph_info
 from lib.runner import (
     ResultWriter,
     install_signal_handlers,
@@ -55,10 +56,11 @@ def resolve_benchmarks(names):
 
 def _run_one(args):
     """Wrapper for process pool."""
-    solver_name, instance_path, timeout, bench_name, use_heuristic, debug, validate = args
+    (solver_name, instance_path, timeout, bench_name, use_heuristic, debug,
+     validate, graph_info) = args
     result = run_solver(
         solver_name, instance_path, timeout, use_heuristic,
-        debug=debug, validate=validate,
+        debug=debug, validate=validate, graph_info=graph_info,
     )
     result["benchmark_set"] = bench_name
     return result
@@ -81,7 +83,7 @@ def _interrupt_workers(pool):
 
 def _error_result(item, exc):
     """Result row for a work item whose worker raised instead of returning."""
-    solver_name, instance_path, _, bench_name, _, _, _ = item
+    solver_name, instance_path, _, bench_name, _, _, _, _ = item
     return {
         "solver": solver_name,
         "benchmark_set": bench_name,
@@ -216,18 +218,30 @@ def main():
         print("Error: no installed benchmarks found")
         sys.exit(1)
 
-    # Build work items
+    # Build work items. Each instance file is scanned once here for its
+    # vertex/edge counts and the result shared by every solver run on it;
+    # reading a 500 MB road graph per (solver, instance) pair was both slow
+    # and memory-hungry. A malformed file is remembered as the exception so
+    # every run on it reports the error without re-reading it.
     work = []
+    graph_infos = {}
     for bench_name in benchmarks:
         instances = list_instances(bench_name)
         if args.max_instances is not None:
             instances = instances[: args.max_instances]
+        for inst in instances:
+            if inst not in graph_infos:
+                try:
+                    graph_infos[inst] = get_graph_info(inst)
+                except Exception as e:
+                    graph_infos[inst] = e
         for solver_name in solvers:
             for inst in instances:
                 work.append(
                     (
                         solver_name, inst, args.timeout, bench_name,
                         args.heuristic, args.debug, args.validate,
+                        graph_infos[inst],
                     )
                 )
 
@@ -258,7 +272,7 @@ def main():
         print(f"Writing results to: {output_path}\n")
 
         def record(item, r):
-            solver_name, inst, _, bench_name, _, _, _ = item
+            solver_name, inst, _, bench_name, _, _, _, _ = item
             inst_name = Path(inst).stem
             results.append(r)
             writer.write(r)

@@ -253,9 +253,15 @@ def _is_full_td(text):
 
 def run_solver(
     solver_name, input_path, timeout=300, use_heuristic=False, debug=False,
-    validate=False,
+    validate=False, graph_info=None,
 ):
     """Run a solver on a single instance.
+
+    graph_info may carry the instance's {"vertices", "edges"} counts when the
+    caller has already read the file (run.py reads each instance once rather
+    than once per solver), or the exception that reading raised, in which
+    case the error row is produced without touching the file again. None
+    means read the file here.
 
     Returns dict with keys:
       solver, instance, vertices, edges, treewidth, time_sec, status, memory_mb
@@ -279,13 +285,17 @@ def run_solver(
     # Parse graph info defensively: a single malformed instance must not abort
     # the whole benchmark run (the exception used to propagate out of the
     # process pool and discard every result collected so far).
-    try:
-        info = get_graph_info(input_path)
-        result["vertices"] = info["vertices"]
-        result["edges"] = info["edges"]
-    except Exception as e:
-        result["status"] = f"error: {str(e)[:100]}"
+    if isinstance(graph_info, Exception):
+        result["status"] = f"error: {str(graph_info)[:100]}"
         return result
+    if graph_info is None:
+        try:
+            graph_info = get_graph_info(input_path)
+        except Exception as e:
+            result["status"] = f"error: {str(e)[:100]}"
+            return result
+    result["vertices"] = graph_info["vertices"]
+    result["edges"] = graph_info["edges"]
 
     # Select command template
     cmd_template = solver["run_command"]
