@@ -71,8 +71,21 @@ def pace_gr_to_quickbb_cnf(input_path, output_path):
     QuickBB CNF format:
       p cnf <n_vertices> <n_edges>
       <u> <v> 0
+
+    Self-loops are dropped and parallel edges (u v / v u, or repeated lines)
+    are written once. Neither affects treewidth, but quickbb's reader turns
+    "u u 0" into a self-loop in its adjacency matrix and adds a parallel edge
+    twice, which corrupts its degree bookkeeping. PACE instances do contain
+    both (tens of thousands in the transit graphs).
     """
-    n, edges = read_pace_gr(input_path)
+    unique = set()
+
+    def collect(u, v):
+        if u != v:
+            unique.add((min(u, v), max(u, v)))
+
+    n, _ = _scan_pace_gr(input_path, collect)
+    edges = sorted(unique)
     with open(output_path, "w") as f:
         f.write(f"p cnf {n} {len(edges)}\n")
         for u, v in edges:

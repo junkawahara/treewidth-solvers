@@ -110,6 +110,17 @@ def test_quickbb_cnf_conversion(tmp_path):
     assert len(lines) == 7  # header + 6 edges
 
 
+def test_quickbb_cnf_conversion_drops_self_loops_and_parallel_edges(tmp_path):
+    gr = tmp_path / "multi.gr"
+    # 3 vertices; self-loop on 1, edge 1-2 given three times (1 2, 2 1, 1 2),
+    # plus 2-3. The simple graph underneath has exactly two edges.
+    gr.write_text("p tw 3 5\n1 1\n1 2\n2 1\n1 2\n2 3\n")
+    out = tmp_path / "multi.cnf"
+    pace_gr_to_quickbb_cnf(str(gr), str(out))
+    lines = out.read_text().strip().splitlines()
+    assert lines == ["p cnf 3 2", "1 2 0", "2 3 0"]
+
+
 def test_parse_td_output_formats():
     assert parse_td_output("s td 3 2 4\nb 1 1 2\n")["treewidth"] == 1
     assert parse_td_output("c width 3")["treewidth"] == 3
