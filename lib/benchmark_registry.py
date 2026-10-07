@@ -8,6 +8,8 @@ import subprocess
 from pathlib import Path
 from glob import glob as globfn
 
+from lib.clone_check import adopt_or_reject_existing, is_complete_clone
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 BENCHMARKS_DIR = BASE_DIR / "benchmarks"
@@ -35,7 +37,10 @@ def benchmark_dir(name):
 
 def is_installed(name):
     # Installed only if the clone completed; a partial download is not usable.
-    return (benchmark_dir(name) / DOWNLOAD_MARKER).exists()
+    # Clones made before the marker existed have no marker, so fall back to
+    # asking git whether the checkout is complete.
+    dest = benchmark_dir(name)
+    return (dest / DOWNLOAD_MARKER).exists() or is_complete_clone(dest)
 
 
 def _decompress_files(dest):
@@ -76,8 +81,19 @@ def download_benchmark(bench):
             print(f"  [{name}] Already downloaded, skipping clone")
             _decompress_files(dest)
             return True
-        # Directory exists without the completion marker: a previous clone was
-        # interrupted. Remove the partial tree and clone again from scratch.
+        # No marker: either a clone made before markers existed (keep it), an
+        # interrupted clone (safe to redo), or something the user put there
+        # by hand (never delete it).
+        state = adopt_or_reject_existing(dest, DOWNLOAD_MARKER, name)
+        if state == "adopted":
+            _decompress_files(dest)
+            return True
+        if state == "foreign":
+            print(
+                f"  [{name}] {dest} exists but is not a git clone; "
+                f"refusing to delete it. Move it away to re-download."
+            )
+            return False
         print(f"  [{name}] Removing incomplete download and re-cloning")
         shutil.rmtree(dest, ignore_errors=True)
     print(f"  [{name}] Cloning {bench['repo']} ...")
