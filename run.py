@@ -3,6 +3,8 @@
 
 import argparse
 import datetime
+import os
+import signal
 import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
@@ -11,7 +13,12 @@ from lib.benchmark_registry import (
     list_instances,
     list_installed as list_installed_benchmarks,
 )
-from lib.runner import ResultWriter, run_solver
+from lib.runner import (
+    ResultWriter,
+    install_signal_handlers,
+    install_worker_signal_handlers,
+    run_solver,
+)
 from lib.solver_registry import (
     get_solver,
     is_installed,
@@ -55,6 +62,21 @@ def _run_one(args):
     )
     result["benchmark_set"] = bench_name
     return result
+
+
+def _interrupt_workers(pool):
+    """Send SIGINT to every live pool worker so it aborts its running solver.
+
+    Workers install lib.runner's handler at start-up (initializer), which
+    terminates the solver's process group and unwinds the task. Uses the
+    executor's private process table; there is no public way to list them.
+    """
+    procs = getattr(pool, "_processes", None) or {}
+    for p in list(procs.values()):
+        try:
+            os.kill(p.pid, signal.SIGINT)
+        except (ProcessLookupError, OSError):
+            pass
 
 
 def _error_result(item, exc):
@@ -224,6 +246,10 @@ def main():
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
         output_path = f"results/{timestamp}.csv"
 
+    # Ctrl-C and SIGTERM both stop the running solver(s) before unwinding;
+    # the solvers live in their own sessions and would otherwise outlive us.
+    install_signal_handlers()
+
     # Results are appended to the CSV as each job finishes, so an interrupted
     # or crashed run still leaves every completed result on disk.
     results = []
@@ -251,7 +277,9 @@ def main():
                 for item in work:
                     record(item, _run_one(item))
             else:
-                with ProcessPoolExecutor(max_workers=args.jobs) as pool:
+                with ProcessPoolExecutor(
+                    max_workers=args.jobs, initializer=install_worker_signal_handlers
+                ) as pool:
                     futures = {pool.submit(_run_one, item): item for item in work}
                     try:
                         for future in as_completed(futures):
@@ -266,6 +294,10 @@ def main():
                     except KeyboardInterrupt:
                         for f in futures:
                             f.cancel()
+                        # Workers run solvers in their own sessions, so a
+                        # signal sent only to this process would leave those
+                        # solvers running. Tell each worker to stop its solver.
+                        _interrupt_workers(pool)
                         pool.shutdown(wait=False)
                         raise
         except KeyboardInterrupt:

@@ -33,6 +33,67 @@ def _kill_group(proc, sig):
         pass
 
 
+def _terminate_group(proc):
+    """Stop proc's whole process group now: SIGTERM, short grace, then SIGKILL.
+
+    Used when the runner itself is being stopped (Ctrl-C, SIGTERM). The solver
+    was started in its own session, so the terminal's SIGINT never reaches it;
+    without this the solver (and any JVM it spawned) would keep running after
+    the runner is gone.
+    """
+    _kill_group(proc, signal.SIGTERM)
+    try:
+        proc.wait(timeout=2)
+    except subprocess.TimeoutExpired:
+        _kill_group(proc, signal.SIGKILL)
+        try:
+            proc.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            pass
+
+
+# Solver process launched by the task currently running in this (worker or
+# main) process, and whether an abort has been requested by signal. Both are
+# per-process state: every ProcessPoolExecutor worker has its own copy.
+_current_proc = None
+_abort_requested = False
+_raise_when_idle = True
+
+
+def _request_abort(signum, frame):
+    """Signal handler for runner processes: stop the solver and unwind.
+
+    If a solver is running, raising KeyboardInterrupt here lands in
+    _run_with_timeout, which terminates the solver's process group before
+    re-raising. Otherwise the flag makes the next _run_with_timeout call
+    abort before launching anything. The main process always raises so its
+    scheduling loop stops; an idle pool worker does not, because raising
+    inside the executor's queue wait would only print a traceback -- the
+    pool shutdown ends it instead.
+    """
+    global _abort_requested
+    _abort_requested = True
+    if _current_proc is not None or _raise_when_idle:
+        raise KeyboardInterrupt
+
+
+def install_signal_handlers(worker=False):
+    """Make SIGINT and SIGTERM abort the running solver cleanly.
+
+    Called in the main process by run.py and, with worker=True via
+    ProcessPoolExecutor's initializer, in every worker process.
+    """
+    global _raise_when_idle
+    _raise_when_idle = not worker
+    signal.signal(signal.SIGINT, _request_abort)
+    signal.signal(signal.SIGTERM, _request_abort)
+
+
+def install_worker_signal_handlers():
+    """ProcessPoolExecutor initializer: see install_signal_handlers."""
+    install_signal_handlers(worker=True)
+
+
 def _group_rss_kb(pgid):
     """Sum the resident set size (kB) of every process in process group pgid.
 
@@ -81,7 +142,14 @@ def _run_with_timeout(cmd, cwd, stdin_path, timeout):
     solver wrapper scripts spawn -- is terminated with SIGTERM then SIGKILL,
     rather than leaving orphaned processes competing for CPU and memory. A
     background thread samples the group's peak resident memory while it runs.
+
+    If the runner is interrupted (KeyboardInterrupt from Ctrl-C or from the
+    SIGINT/SIGTERM handler) while the solver runs, the group is terminated
+    before the exception propagates, so no solver outlives the runner.
     """
+    global _current_proc
+    if _abort_requested:
+        raise KeyboardInterrupt
     fin = open(stdin_path) if stdin_path else None
     try:
         proc = subprocess.Popen(
@@ -108,19 +176,30 @@ def _run_with_timeout(cmd, cwd, stdin_path, timeout):
 
     timed_out = False
     try:
-        stdout, stderr = proc.communicate(timeout=timeout)
-    except subprocess.TimeoutExpired:
-        timed_out = True
-        _kill_group(proc, signal.SIGTERM)
+        _current_proc = proc
+        # An abort signal that arrived between Popen and the assignment above
+        # could not raise (no proc was registered yet); honour it now.
+        if _abort_requested:
+            raise KeyboardInterrupt
         try:
-            stdout, stderr = proc.communicate(timeout=5)
+            stdout, stderr = proc.communicate(timeout=timeout)
         except subprocess.TimeoutExpired:
-            _kill_group(proc, signal.SIGKILL)
+            timed_out = True
+            _kill_group(proc, signal.SIGTERM)
             try:
                 stdout, stderr = proc.communicate(timeout=5)
             except subprocess.TimeoutExpired:
-                stdout, stderr = "", ""
+                _kill_group(proc, signal.SIGKILL)
+                try:
+                    stdout, stderr = proc.communicate(timeout=5)
+                except subprocess.TimeoutExpired:
+                    stdout, stderr = "", ""
+    except BaseException:
+        # KeyboardInterrupt / SystemExit: never leave the solver running.
+        _terminate_group(proc)
+        raise
     finally:
+        _current_proc = None
         stop_event.set()
         sampler.join(timeout=1)
 

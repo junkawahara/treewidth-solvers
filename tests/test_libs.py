@@ -18,6 +18,7 @@ from lib.format_converter import (  # noqa: E402
     parse_td_output,
     read_pace_gr,
 )
+import lib.runner as runner  # noqa: E402
 from lib.runner import CSV_FIELDS, ResultWriter, write_csv  # noqa: E402
 from lib.validator import validate  # noqa: E402
 from lib.clone_check import (  # noqa: E402
@@ -112,6 +113,68 @@ def test_write_csv_matches_incremental_writer(tmp_path):
     assert a.read_text() == b.read_text()
     write_csv([], tmp_path / "none.csv")
     assert not (tmp_path / "none.csv").exists()
+
+
+def _sleepers_alive(tag):
+    import subprocess
+
+    r = subprocess.run(["pgrep", "-f", f"sleep {tag}"], capture_output=True, text=True)
+    return [pid for pid in r.stdout.split() if pid != str(os.getpid())]
+
+
+def test_interrupt_during_solver_kills_whole_process_group(tmp_path):
+    """A KeyboardInterrupt while waiting on the solver must not orphan it.
+
+    The command spawns a grandchild too (like the shell wrappers around the
+    JVM solvers); both must be gone after the interrupt propagates.
+    """
+    import signal
+
+    tag = f"31.4159{os.getpid() % 1000}"
+    cmd = f"sleep {tag} & sleep {tag}"
+
+    def alarm(signum, frame):
+        raise KeyboardInterrupt
+
+    old = signal.signal(signal.SIGALRM, alarm)
+    try:
+        signal.setitimer(signal.ITIMER_REAL, 0.5)
+        try:
+            runner._run_with_timeout(cmd, str(tmp_path), None, timeout=30)
+        except KeyboardInterrupt:
+            pass
+        else:
+            raise AssertionError("KeyboardInterrupt did not propagate")
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, old)
+    assert _sleepers_alive(tag) == []
+    assert runner._current_proc is None
+
+
+def test_abort_request_prevents_launching_next_solver(tmp_path):
+    """The worker handler sets a flag when idle; the next launch must abort."""
+    assert runner._current_proc is None
+    saved = (runner._abort_requested, runner._raise_when_idle)
+    try:
+        runner._raise_when_idle = False  # worker mode: do not raise while idle
+        runner._request_abort(None, None)  # returns, only flags
+        assert runner._abort_requested
+        try:
+            runner._run_with_timeout("echo should-not-run", str(tmp_path), None, 5)
+        except KeyboardInterrupt:
+            pass
+        else:
+            raise AssertionError("expected KeyboardInterrupt before launch")
+        runner._raise_when_idle = True  # main-process mode raises at once
+        try:
+            runner._request_abort(None, None)
+        except KeyboardInterrupt:
+            pass
+        else:
+            raise AssertionError("main-process handler must raise when idle")
+    finally:
+        runner._abort_requested, runner._raise_when_idle = saved
 
 
 def test_validate_accepts_correct_path_decomposition():
