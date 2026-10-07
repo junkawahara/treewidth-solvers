@@ -96,14 +96,20 @@ def validate(graph_path, td_text):
         if v < 1 or v > n:
             errors.append(f"Bag contains out-of-range vertex {v} (graph has {n})")
 
-    # Check 2: every edge is covered
+    # Index: vertex -> set of bag ids containing it. Shared by checks 2 and 3.
+    vertex_to_bags = defaultdict(set)
+    for bag_id, vset in bags.items():
+        for v in vset:
+            vertex_to_bags[v].add(bag_id)
+
+    # Check 2: every edge is covered, i.e. some bag contains both endpoints.
+    # Intersect the two endpoints' bag sets instead of scanning every bag per
+    # edge: the old scan was O(edges x bags) and took hours on road graphs
+    # with hundreds of thousands of edges and bags.
     for u, v in edges:
-        found = False
-        for vset in bags.values():
-            if u in vset and v in vset:
-                found = True
-                break
-        if not found:
+        bu = vertex_to_bags.get(u)
+        bv = vertex_to_bags.get(v)
+        if not bu or not bv or bu.isdisjoint(bv):
             errors.append(f"Edge ({u},{v}) not covered by any bag")
 
     # Check 3: connected subtree property
@@ -111,11 +117,6 @@ def validate(graph_path, td_text):
     for a, b in tree_edges:
         adj[a].add(b)
         adj[b].add(a)
-
-    vertex_to_bags = defaultdict(set)
-    for bag_id, vset in bags.items():
-        for v in vset:
-            vertex_to_bags[v].add(bag_id)
 
     for v in all_bag_vertices:
         v_bags = vertex_to_bags[v]
