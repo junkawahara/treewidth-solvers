@@ -267,6 +267,33 @@ def test_run_with_timeout_reports_kill_after_grace(tmp_path):
     assert "s td 1 1 1" in out
 
 
+def test_run_solver_classifies_nonzero_exit_as_error(tmp_path):
+    """Output printed before a crash must not be recorded as ok."""
+    import lib.solver_registry as reg
+
+    fake = {
+        "name": "fake", "type": "exact", "language": "c",
+        "run_command": "echo 's td 1 1 1'; echo 'b 1 1'; exit 3",
+        "run_mode": "stdin_stdout", "input_format": "pace_gr",
+        "output_format": "pace_td",
+    }
+    orig_get, orig_dir = runner.get_solver, runner.solver_dir
+    runner.get_solver = lambda name: fake
+    runner.solver_dir = lambda name: tmp_path
+    try:
+        r = runner.run_solver("fake", _gr("path4.gr"), timeout=5, debug=True)
+        assert r["status"] == "error: exit 3" and r["treewidth"] is None
+        assert r["_debug"]["returncode"] == 3
+        fake["run_command"] = "echo 's td 1 1 1'; echo 'b 1 1'; kill -ABRT $$"
+        r = runner.run_solver("fake", _gr("path4.gr"), timeout=5)
+        assert r["status"] == "error: signal 6"
+        fake["run_command"] = "echo 's td 1 2 4'; echo 'b 1 1 2'"
+        r = runner.run_solver("fake", _gr("path4.gr"), timeout=5)
+        assert r["status"] == "ok" and r["treewidth"] == 1
+    finally:
+        runner.get_solver, runner.solver_dir = orig_get, orig_dir
+
+
 def test_run_solver_rejects_output_truncated_by_sigkill(tmp_path):
     """Signal-protocol mode: output cut off by SIGKILL is a timeout, not ok."""
     fake = {

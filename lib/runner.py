@@ -389,6 +389,14 @@ def run_solver(
 
             if timed_out and not signal_timeout:
                 result["status"] = "timeout"
+            elif not timed_out and returncode != 0:
+                # A crash is not an answer, whatever was printed before it:
+                # a JVM that dies after the "s td" header leaves a truncated
+                # decomposition, and an OOM-killed solver leaves nothing.
+                if returncode < 0:
+                    result["status"] = f"error: signal {-returncode}"
+                else:
+                    result["status"] = f"error: exit {returncode}"
             else:
                 if mode == "file":
                     stdout = _read_file_output(work_dir, iname, td_path, stdout)
