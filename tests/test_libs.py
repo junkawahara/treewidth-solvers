@@ -186,6 +186,14 @@ def test_parse_td_output_prefers_header_over_width_lines():
     _assert_raises(ValueError, parse_td_output, "s td 3 2\n")
 
 
+def test_is_full_td_requires_header_and_a_bag():
+    assert runner._is_full_td("s td 1 2 2\nb 1 1 2\n")
+    assert runner._is_full_td("c x\nb 1 1 2\ns td 1 2 2\n")  # order-independent
+    assert not runner._is_full_td("s td 1 2 2\n")  # header only: truncated
+    assert not runner._is_full_td("c width 3\n")  # width-only output
+    assert not runner._is_full_td("b 1 1 2\n1 2\n")  # bags without header
+
+
 def test_parse_quickbb_stat_distinguishes_proven_from_timed_out():
     # n m lb bound time visited pruned optimal
     assert parse_quickbb_stat("27 135 0 17 0.33 120 45 1\n") == {
