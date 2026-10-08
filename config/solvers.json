@@ -76,7 +76,7 @@
     "language": "cpp",
     "repo": "https://github.com/freetdi/p17.git",
     "build_steps": [
-      "git clone --depth 1 https://github.com/bingmann/stx-btree.git /tmp/stx-btree 2>/dev/null; mkdir -p ta && cp -r /tmp/stx-btree/include/stx ta/",
+      "test -d ta/stx || (rm -rf stx-btree && git clone --depth 1 https://github.com/bingmann/stx-btree.git stx-btree && mkdir -p ta && cp -r stx-btree/include/stx ta/ && rm -rf stx-btree)",
       "grep -q 'static unsigned dummy' tdlib/src/graph_traits.hpp || sed -i 's/unsigned dummy;/static unsigned dummy;/' tdlib/src/graph_traits.hpp",
       "sed -i 's/return treedec::bagsize_t().dummy;/return treedec::bagsize_t::dummy;/' tdlib/src/graph_traits.hpp",
       "grep -q 'inline unsigned bagsize_t::dummy' tdlib/src/graph_traits.hpp || sed -i '0,/^} \\/\\/ treedec/s/^} \\/\\/ treedec/inline unsigned bagsize_t::dummy = 0;\\n} \\/\\/ treedec/' tdlib/src/graph_traits.hpp",
