@@ -251,6 +251,22 @@ def _run_with_timeout(cmd, cwd, stdin_path, timeout, grace=OUTPUT_GRACE_SEC):
     return stdout, stderr, timed_out, killed, proc.returncode, peak_mb
 
 
+def internal_time_limit(timeout):
+    """Time limit to hand a solver's own --time option ({timeout_soft}).
+
+    It must expire before the outer wall-clock timeout, or the solver is
+    killed before it can print and account for the bound it already found.
+    The margin is 10 s, but never more than a quarter of the timeout: the
+    old fixed "timeout - 10" left quickbb a 1 s budget for any timeout up to
+    11 s. quickbb checks its clock coarsely and has overrun a 20 s limit by
+    9 s; when that happens the outer timeout kills it and the run is simply
+    recorded as a timeout, which is also what its unproven bound would have
+    been classified as.
+    """
+    margin = min(10, max(1, timeout // 4))
+    return max(1, timeout - margin)
+
+
 def _read_file_output(work_dir, iname, td_path, stdout):
     """For file-mode solvers, prefer a decomposition written to the work dir."""
     if os.path.exists(td_path) and os.path.getsize(td_path) > 0:
@@ -381,10 +397,7 @@ def run_solver(
         # Side file for solvers that report run statistics separately from
         # the answer (quickbb --statfile); never read as a decomposition.
         stat_path = os.path.join(work_dir, iname + ".stat")
-        # Internal solver time limits (e.g. quickbb --time) must expire before
-        # the outer wall-clock timeout, or the solver is killed before it can
-        # print the bound it already found.
-        timeout_soft = max(1, timeout - 10)
+        timeout_soft = internal_time_limit(timeout)
 
         def q(value):
             return shlex.quote(str(value))

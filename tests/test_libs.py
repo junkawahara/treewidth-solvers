@@ -357,6 +357,16 @@ def test_group_memory_uses_pss_and_counts_the_whole_group(tmp_path):
     assert own < kb                       # ...but the child is included
 
 
+def test_internal_time_limit_keeps_a_useful_budget_for_short_timeouts():
+    f = runner.internal_time_limit
+    assert f(300) == 290 and f(60) == 50 and f(40) == 30
+    # Below 40 s the margin shrinks with the timeout instead of eating it.
+    assert f(20) == 15 and f(11) == 9 and f(8) == 6 and f(4) == 3
+    assert f(2) == 1 and f(1) == 1
+    for t in range(1, 400):
+        assert 1 <= f(t) <= t
+
+
 def test_run_with_timeout_tolerates_non_utf8_output(tmp_path):
     out, err, timed_out, killed, rc, _mb = runner._run_with_timeout(
         "printf 's td 1 2 2\\n\\377\\376 junk\\n'; printf '\\377' >&2",
