@@ -228,15 +228,6 @@ def _read_quickbb_stat(stat_path):
         return parse_quickbb_stat(f.read())
 
 
-def _first_int_line(text):
-    """Return the first line that is a bare integer, or None."""
-    for line in text.strip().split("\n"):
-        line = line.strip()
-        if line.isdigit():
-            return int(line)
-    return None
-
-
 def _is_full_td(text):
     """True if text looks like a complete decomposition (header plus bags)."""
     has_header = has_bag = False
@@ -379,19 +370,18 @@ def run_solver(
             else:
                 if mode == "file":
                     stdout = _read_file_output(work_dir, iname, td_path, stdout)
+                # Only a recognised header or width line counts as an answer.
+                # A bare integer line is not one: solvers print progress
+                # counters and JVMs print warnings, and taking any such line
+                # as the treewidth would record garbage as "ok".
                 td_info = parse_td_output(stdout)
                 if td_info:
                     result["treewidth"] = td_info["treewidth"]
                     result["status"] = "ok"
+                elif signal_timeout:
+                    result["status"] = "timeout"
                 else:
-                    num = _first_int_line(stdout)
-                    if num is not None:
-                        result["treewidth"] = num
-                        result["status"] = "ok"
-                    elif signal_timeout:
-                        result["status"] = "timeout"
-                    else:
-                        result["status"] = "parse_error"
+                    result["status"] = "parse_error"
 
                 # quickbb prints "Treewidth= <bound>" even when it stopped at
                 # its --time limit, in which case the value is only an upper
