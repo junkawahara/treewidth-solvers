@@ -8,7 +8,12 @@ import subprocess
 from pathlib import Path
 from glob import glob as globfn
 
-from lib.clone_check import adopt_or_reject_existing, is_complete_clone
+from lib.clone_check import (
+    adopt_or_reject_existing,
+    clone_pinned,
+    is_complete_clone,
+    warn_if_not_pinned,
+)
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -88,9 +93,11 @@ def _decompress_files(dest):
 def download_benchmark(bench):
     name = bench["name"]
     dest = benchmark_dir(name)
+    commit = bench.get("commit")
     if dest.exists():
         if (dest / DOWNLOAD_MARKER).exists():
             print(f"  [{name}] Already downloaded, skipping clone")
+            warn_if_not_pinned(dest, commit, name)
             _decompress_files(dest)
             return True
         # No marker: either a clone made before markers existed (keep it), an
@@ -98,6 +105,7 @@ def download_benchmark(bench):
         # by hand (never delete it).
         state = adopt_or_reject_existing(dest, DOWNLOAD_MARKER, name)
         if state == "adopted":
+            warn_if_not_pinned(dest, commit, name)
             _decompress_files(dest)
             return True
         if state == "foreign":
@@ -108,19 +116,14 @@ def download_benchmark(bench):
             return False
         print(f"  [{name}] Removing incomplete download and re-cloning")
         shutil.rmtree(dest, ignore_errors=True)
-    print(f"  [{name}] Cloning {bench['repo']} ...")
+    print(f"  [{name}] Cloning {bench['repo']} at {commit or 'HEAD'} ...")
     try:
-        subprocess.run(
-            ["git", "clone", "--depth", "1", bench["repo"], str(dest)],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
+        clone_pinned(bench["repo"], commit, dest)
         (dest / DOWNLOAD_MARKER).write_text("ok\n")
         _decompress_files(dest)
         return True
     except subprocess.CalledProcessError as e:
-        print(f"  [{name}] Clone failed: {e.stderr.strip()}")
+        print(f"  [{name}] Clone failed: {(e.stderr or '').strip()}")
         return False
 
 

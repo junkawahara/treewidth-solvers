@@ -651,6 +651,40 @@ def _make_repo(path):
     _git(path, "commit", "-q", "-m", "init")
 
 
+def test_clone_pinned_checks_out_exactly_the_requested_commit(tmp_path):
+    import subprocess
+
+    from lib.clone_check import clone_pinned, head_commit
+
+    src = tmp_path / "src"
+    _make_repo(src)
+    old = head_commit(src)
+    (src / "a.txt").write_text("newer\n")
+    _git(src, "commit", "-q", "-am", "second")
+    new = head_commit(src)
+    assert old != new
+    repo = f"file://{src}"
+    dst = tmp_path / "dst"
+    clone_pinned(repo, old, dst)
+    assert head_commit(dst) == old and (dst / "a.txt").read_text() == "a\n"
+    dst2 = tmp_path / "dst2"
+    clone_pinned(repo, None, dst2)  # unpinned: upstream HEAD
+    assert head_commit(dst2) == new
+    bad = tmp_path / "bad"
+    _assert_raises(subprocess.CalledProcessError, clone_pinned, repo, "0" * 40, bad)
+    assert not bad.exists()  # nothing half-made is left behind
+
+
+def test_every_configured_repo_is_pinned_to_a_full_sha():
+    import re
+
+    from lib.benchmark_registry import load_benchmarks
+    from lib.solver_registry import load_solvers
+
+    for entry in load_solvers() + load_benchmarks():
+        assert re.fullmatch(r"[0-9a-f]{40}", entry.get("commit", "")), entry["name"]
+
+
 def test_complete_clone_without_marker_is_adopted_not_deleted(tmp_path):
     repo = tmp_path / "repo"
     _make_repo(repo)

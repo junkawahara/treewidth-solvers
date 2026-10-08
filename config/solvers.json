@@ -4,6 +4,7 @@
     "type": "exact",
     "language": "java",
     "repo": "https://github.com/twalgor/tw.git",
+    "commit": "17fcb3cd59e7be63bdab312fcaa16ca98866cf13",
     "build_steps": [
       "find . -name '*.java' > sources.txt",
       "mkdir -p bin",
@@ -22,6 +23,7 @@
     "type": "exact",
     "language": "java",
     "repo": "https://github.com/twalgor/RTW.git",
+    "commit": "11c66cd4471e1a58201766e40b8f91dc3d03fa13",
     "build_steps": [
       "find . -name '*.java' > sources.txt",
       "mkdir -p bin",
@@ -40,6 +42,7 @@
     "type": "both",
     "language": "java",
     "repo": "https://github.com/TCS-Meiji/PACE2017-TrackA.git",
+    "commit": "7278390fe81191f238206b822fa2941d068a1214",
     "build_steps": [
       "make exact",
       "make heuristic",
@@ -62,6 +65,7 @@
     "type": "exact",
     "language": "c",
     "repo": "https://github.com/TCS-Meiji/treewidth-exact.git",
+    "commit": "d5ba92a2600b96a2b5de0816f550d06befcdb570",
     "build_steps": [
       "make CFLAGS='-std=gnu99 -O2 -fcommon'"
     ],
@@ -81,8 +85,9 @@
     "type": "both",
     "language": "cpp",
     "repo": "https://github.com/freetdi/p17.git",
+    "commit": "552341da2ae36cb2e64ef9e39add2fab27c6d879",
     "build_steps": [
-      "test -d ta/stx || (rm -rf stx-btree && git clone --depth 1 https://github.com/bingmann/stx-btree.git stx-btree && mkdir -p ta && cp -r stx-btree/include/stx ta/ && rm -rf stx-btree)",
+      "test -d ta/stx || (rm -rf stx-btree && git init -q stx-btree && git -C stx-btree fetch -q --depth 1 https://github.com/bingmann/stx-btree.git eff5e36975b62327755b2e05fd19c882ea6b4b0c && git -C stx-btree checkout -q FETCH_HEAD && mkdir -p ta && cp -r stx-btree/include/stx ta/ && rm -rf stx-btree)",
       "grep -q 'static unsigned dummy' tdlib/src/graph_traits.hpp || sed -i 's/unsigned dummy;/static unsigned dummy;/' tdlib/src/graph_traits.hpp",
       "sed -i 's/return treedec::bagsize_t().dummy;/return treedec::bagsize_t::dummy;/' tdlib/src/graph_traits.hpp",
       "grep -q 'inline unsigned bagsize_t::dummy' tdlib/src/graph_traits.hpp || sed -i '0,/^} \\/\\/ treedec/s/^} \\/\\/ treedec/inline unsigned bagsize_t::dummy = 0;\\n} \\/\\/ treedec/' tdlib/src/graph_traits.hpp",
@@ -113,6 +118,7 @@
     "type": "both",
     "language": "java",
     "repo": "https://github.com/maxbannach/Jdrasil.git",
+    "commit": "eafaa4cc76df9d938ac85b88e5c4218a4fbb6c1a",
     "build_steps": [
       "find subprojects/core/src/main -name '*.java' > sources.txt",
       "mkdir -p bin",
@@ -137,9 +143,10 @@
     "type": "exact",
     "language": "cpp",
     "repo": "https://github.com/dechterlab/quickbb.git",
+    "commit": "9ecb58a7e0ed9ec5f1a8933e3d4746587dfdca85",
     "build_steps": [
       "grep -q '#include <cstring>' src/quickbb_1.cpp || sed -i '/#include <getopt.h>/a #include <cstring>' src/quickbb_1.cpp",
-      "git apply --check ../../config/quickbb-ub-fix.patch 2>/dev/null && git apply ../../config/quickbb-ub-fix.patch || true",
+      "git apply --check -R ../../config/quickbb-ub-fix.patch 2>/dev/null || git apply ../../config/quickbb-ub-fix.patch",
       "autoreconf -fi",
       "./configure",
       "make"
@@ -161,6 +168,7 @@
     "type": "exact",
     "language": "julia",
     "repo": "https://github.com/ArrogantGao/TreeWidthSolver.jl.git",
+    "commit": "56f00acb456bf1ad6be1cb5516ac73a4bd6313c1",
     "build_steps": [
       "julia -e 'using Pkg; Pkg.activate(\".\"); Pkg.instantiate()'",
       "cp ../../config/run_wrapper.jl run_wrapper.jl"
@@ -178,6 +186,7 @@
     "type": "heuristic",
     "language": "cpp",
     "repo": "https://github.com/kit-algo/flow-cutter-pace17.git",
+    "commit": "7f94541b0119284ea9322d528cef420e041539b6",
     "build_steps": [
       "./build.sh"
     ],
@@ -194,6 +203,7 @@
     "type": "heuristic",
     "language": "cpp",
     "repo": "https://github.com/mabseher/htd.git",
+    "commit": "ee520543ca07df16ddd96432fa9ee3cad4c3336b",
     "build_steps": [
       "mkdir -p build",
       "cd build && cmake .. && make -j$(nproc)"
@@ -215,6 +225,7 @@
     "type": "heuristic",
     "language": "cpp",
     "repo": "https://github.com/td-mrs/minfill_mrs.git",
+    "commit": "c1aa4f32ab3350d027ed0e932183f5f649b2ea88",
     "build_steps": [
       "make"
     ],
@@ -234,6 +245,7 @@
     "type": "heuristic",
     "language": "cpp",
     "repo": "https://github.com/td-mrs/minfillbg_mrs.git",
+    "commit": "7aa09099ad4e9e51e47317c77f39664d07d921ed",
     "build_steps": [
       "make"
     ],

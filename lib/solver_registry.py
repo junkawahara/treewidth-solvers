@@ -8,7 +8,7 @@ import subprocess
 import threading
 from pathlib import Path
 
-from lib.clone_check import adopt_or_reject_existing
+from lib.clone_check import adopt_or_reject_existing, clone_pinned, warn_if_not_pinned
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -102,15 +102,18 @@ def check_dependency(lang):
 def download_solver(solver):
     name = solver["name"]
     dest = solver_dir(name)
+    commit = solver.get("commit")
     if dest.exists():
         if (dest / DOWNLOAD_MARKER).exists():
             print(f"  [{name}] Already downloaded, skipping clone")
+            warn_if_not_pinned(dest, commit, name)
             return True
         # No marker: either a clone made before markers existed (keep it), an
         # interrupted clone (safe to redo), or something the user put there
         # by hand (never delete it).
         state = adopt_or_reject_existing(dest, DOWNLOAD_MARKER, name)
         if state == "adopted":
+            warn_if_not_pinned(dest, commit, name)
             return True
         if state == "foreign":
             print(
@@ -120,18 +123,13 @@ def download_solver(solver):
             return False
         print(f"  [{name}] Removing incomplete download and re-cloning")
         shutil.rmtree(dest, ignore_errors=True)
-    print(f"  [{name}] Cloning {solver['repo']} ...")
+    print(f"  [{name}] Cloning {solver['repo']} at {commit or 'HEAD'} ...")
     try:
-        subprocess.run(
-            ["git", "clone", "--depth", "1", solver["repo"], str(dest)],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
+        clone_pinned(solver["repo"], commit, dest)
         (dest / DOWNLOAD_MARKER).write_text("ok\n")
         return True
     except subprocess.CalledProcessError as e:
-        print(f"  [{name}] Clone failed: {e.stderr.strip()}")
+        print(f"  [{name}] Clone failed: {(e.stderr or '').strip()}")
         return False
 
 

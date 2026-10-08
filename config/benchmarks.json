@@ -2,6 +2,7 @@
   {
     "name": "pace2017-instances",
     "repo": "https://github.com/PACE-challenge/Treewidth-PACE-2017-instances.git",
+    "commit": "44e40b0ce87d2360f6114ba2aa503ef8df5e9256",
     "format": "pace_gr",
     "glob": "**/*.gr",
     "description": "PACE 2017 official competition instances",
@@ -10,6 +11,7 @@
   {
     "name": "pace2017-bonus",
     "repo": "https://github.com/PACE-challenge/Treewidth-PACE-2017-bonus-instances.git",
+    "commit": "a6cd8149a0cdba96f99bc578c99cd0459f6e4ec8",
     "format": "pace_gr",
     "glob": "**/*.gr",
     "description": "PACE 2017 bonus (extra challenging) instances",
@@ -18,6 +20,7 @@
   {
     "name": "pace2016-testbed",
     "repo": "https://github.com/holgerdell/PACE-treewidth-testbed.git",
+    "commit": "99b9eec348d2a6f37cfb2f61f79745bd0a7b0b02",
     "format": "pace_gr",
     "glob": "**/*.gr",
     "description": "PACE 2016 treewidth testbed (instances + tools)",
@@ -26,6 +29,7 @@
   {
     "name": "named-graphs",
     "repo": "https://github.com/freetdi/named-graphs.git",
+    "commit": "2719d7c01a183f780075f285caab4d321e9ea307",
     "format": "pace_gr",
     "glob": "**/*.gr",
     "description": "Collection of named graphs (Petersen, Hoffman, etc.)",
@@ -34,6 +38,7 @@
   {
     "name": "control-flow-graphs",
     "repo": "https://github.com/freetdi/CFGs.git",
+    "commit": "2d2ab67e68b22e825345e5e18eb9b82244d6984c",
     "format": "pace_gr",
     "glob": "**/*.gr",
     "description": "Control flow graphs from compiled programs",
@@ -42,6 +47,7 @@
   {
     "name": "uai2014-graphs",
     "repo": "https://github.com/PACE-challenge/UAI-2014-competition-graphs.git",
+    "commit": "6d81d34732ab3144402246bcb56edf31be28018c",
     "format": "pace_gr",
     "glob": "**/*.gr",
     "description": "Graphs from UAI 2014 probabilistic inference competition",
@@ -50,6 +56,7 @@
   {
     "name": "transit-graphs",
     "repo": "https://github.com/daajoe/transit_graphs.git",
+    "commit": "ac9a7b390f0f4c671a4c66157c9ff20773bb0105",
     "format": "pace_gr",
     "glob": "**/*.gr",
     "description": "Transit/transportation network graphs",
@@ -58,6 +65,7 @@
   {
     "name": "road-graphs",
     "repo": "https://github.com/ben-strasser/road-graphs-pace16.git",
+    "commit": "d65496ca1e6a99e3fb782af04ef706b7f39ce876",
     "format": "pace_gr",
     "glob": "**/*.gr",
     "description": "Road network graphs",
