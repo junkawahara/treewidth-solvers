@@ -50,26 +50,53 @@ def is_installed(name):
     return (solver_dir(name) / BUILD_MARKER).exists()
 
 
-def check_dependency(lang):
-    """Check that every tool needed to build and run this language is present."""
+LANGUAGE_TOOLS = {
     # Java solvers are compiled with javac (and packaged with jar) at build
     # time, so checking only the java runtime let JRE-only environments pass
     # the check and then fail every build step with "javac: not found".
-    checks = {
-        "java": [["java", "-version"], ["javac", "-version"]],
-        "c": [["gcc", "--version"]],
-        "cpp": [["g++", "--version"]],
-        "julia": [["julia", "--version"]],
-    }
-    cmds = checks.get(lang)
-    if cmds is None:
-        return True
-    for cmd in cmds:
-        try:
-            subprocess.run(cmd, capture_output=True, check=True)
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            return False
-    return True
+    "java": ["java", "javac"],
+    "c": ["gcc"],
+    "cpp": ["g++"],
+    "julia": ["julia"],
+}
+
+
+def _has_header(header, compiler="g++"):
+    """True if the C/C++ compiler can find #include <header>."""
+    try:
+        r = subprocess.run(
+            [compiler, "-x", "c++", "-E", "-"],
+            input=f"#include <{header}>\n",
+            capture_output=True,
+            text=True,
+        )
+        return r.returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def missing_dependencies(solver):
+    """List what is missing to build this solver: compilers for its language,
+    the extra build tools it names in "tools" (make, cmake, autoreconf, jar,
+    ...) and the C/C++ headers it names in "headers" (Boost).
+
+    Before this, only the language compiler was checked, so a missing cmake or
+    Boost was reported as a build failure deep in the output rather than as
+    an up-front "skipping: X not found".
+    """
+    missing = []
+    for tool in LANGUAGE_TOOLS.get(solver.get("language"), []) + solver.get("tools", []):
+        if shutil.which(tool) is None:
+            missing.append(tool)
+    for header in solver.get("headers", []):
+        if not _has_header(header):
+            missing.append(f"<{header}>")
+    return missing
+
+
+def check_dependency(lang):
+    """Check that the compilers for this language are present."""
+    return not missing_dependencies({"language": lang})
 
 
 def download_solver(solver):
@@ -204,9 +231,9 @@ def build_solver(solver):
 
 def setup_solver(solver):
     name = solver["name"]
-    lang = solver["language"]
-    if not check_dependency(lang):
-        print(f"  [{name}] Skipping: {lang} not found")
+    missing = missing_dependencies(solver)
+    if missing:
+        print(f"  [{name}] Skipping: not found: {', '.join(missing)}")
         return False
     if not download_solver(solver):
         return False

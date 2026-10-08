@@ -569,6 +569,22 @@ def test_parse_td_reports_malformed_lines_as_value_error():
     assert problems == []
 
 
+def test_missing_dependencies_names_tools_and_headers():
+    import lib.solver_registry as reg
+
+    assert reg.missing_dependencies({"language": "c", "tools": ["sh"]}) == []
+    missing = reg.missing_dependencies({
+        "language": "c", "tools": ["sh", "no-such-tool-xyz"],
+        "headers": ["stdio.h", "no/such/header.hpp"],
+    })
+    assert missing == ["no-such-tool-xyz", "<no/such/header.hpp>"]
+    assert reg.missing_dependencies({"language": "cobol"}) == []
+    assert reg.check_dependency("c")
+    # Every configured solver names only tools the registry can look up.
+    for s in reg.load_solvers():
+        assert isinstance(s.get("tools", []), list)
+
+
 def test_build_step_timeout_kills_the_whole_process_tree(tmp_path):
     """A timed-out step must take its children with it, and the log must
     hold everything the step printed."""

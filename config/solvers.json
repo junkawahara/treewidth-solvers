@@ -45,6 +45,9 @@
       "make heuristic",
       "chmod +x tw-exact tw-heuristic"
     ],
+    "tools": [
+      "make"
+    ],
     "run_command": "./tw-exact < {input}",
     "run_command_heuristic": "./tw-heuristic < {input}",
     "run_mode": "stdin_stdout_signal",
@@ -61,6 +64,9 @@
     "repo": "https://github.com/TCS-Meiji/treewidth-exact.git",
     "build_steps": [
       "make CFLAGS='-std=gnu99 -O2 -fcommon'"
+    ],
+    "tools": [
+      "make"
     ],
     "run_command": "./tw-exact < {input}",
     "run_mode": "stdin_stdout",
@@ -83,6 +89,16 @@
       "sed -i 's|CXXFLAGS=-O3|CXXFLAGS=\"-O3 -fpermissive\"|' Makefile",
       "make"
     ],
+    "tools": [
+      "make",
+      "git",
+      "autoconf",
+      "automake",
+      "libtoolize"
+    ],
+    "headers": [
+      "boost/graph/adjacency_list.hpp"
+    ],
     "run_command": "./tw-exact < {input}",
     "run_command_heuristic": "./tw-heuristic < {input}",
     "run_mode": "stdin_stdout_signal",
@@ -104,6 +120,9 @@
       "mkdir -p build/jars",
       "jar cfe build/jars/Jdrasil.jar jdrasil.Exact -C bin ."
     ],
+    "tools": [
+      "jar"
+    ],
     "run_command": "java -cp build/jars/Jdrasil.jar jdrasil.Exact < {input}",
     "run_command_heuristic": "java -cp build/jars/Jdrasil.jar jdrasil.Heuristic < {input}",
     "run_mode": "stdin_stdout_signal",
@@ -124,6 +143,10 @@
       "autoreconf -fi",
       "./configure",
       "make"
+    ],
+    "tools": [
+      "make",
+      "autoreconf"
     ],
     "run_command": "./src/quickbb --min-fill-ordering --time {timeout_soft} --cnffile {input} --statfile {output_stat}",
     "run_mode": "file",
@@ -175,6 +198,10 @@
       "mkdir -p build",
       "cd build && cmake .. && make -j$(nproc)"
     ],
+    "tools": [
+      "cmake",
+      "make"
+    ],
     "run_command": "LD_LIBRARY_PATH=./build/lib ./build/bin/htd_main --type tree --input gr --output td --strategy min-fill < {input}",
     "run_mode": "stdin_stdout",
     "input_format": "pace_gr",
@@ -191,6 +218,9 @@
     "build_steps": [
       "make"
     ],
+    "tools": [
+      "make"
+    ],
     "run_command": "./minfill_mrs < {input}",
     "run_mode": "stdin_stdout_signal",
     "input_format": "pace_gr",
@@ -205,6 +235,9 @@
     "language": "cpp",
     "repo": "https://github.com/td-mrs/minfillbg_mrs.git",
     "build_steps": [
+      "make"
+    ],
+    "tools": [
       "make"
     ],
     "run_command": "./minfillbg_mrs < {input}",
