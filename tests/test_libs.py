@@ -96,6 +96,17 @@ def test_run_solver_uses_precomputed_graph_info(tmp_path):
     )
     assert r["status"] == "error: declared 6 edges but found 2"
     assert r["vertices"] is None and r["treewidth"] is None
+    assert "_debug" not in r
+    # With --debug the reason is available for _print_debug to show.
+    r = runner.run_solver(
+        "flowcutter-17", missing, timeout=1, debug=True,
+        graph_info=ValueError("declared 6 edges but found 2"),
+    )
+    assert "declared 6 edges" in r["_debug"]["stderr"]
+    assert r["_debug"]["command"] == ""
+    r = runner.run_solver("flowcutter-17", missing, timeout=1, debug=True)
+    assert r["status"].startswith("error: [Errno 2]")
+    assert "does-not-exist.gr" in r["_debug"]["stderr"]
 
 
 def test_read_pace_gr_rejects_edge_count_mismatch(tmp_path):

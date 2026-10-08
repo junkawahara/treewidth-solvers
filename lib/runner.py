@@ -298,26 +298,6 @@ def run_solver(
         "memory_mb": None,
     }
 
-    # Parse graph info defensively: a single malformed instance must not abort
-    # the whole benchmark run (the exception used to propagate out of the
-    # process pool and discard every result collected so far).
-    if isinstance(graph_info, Exception):
-        result["status"] = f"error: {str(graph_info)[:100]}"
-        return result
-    if graph_info is None:
-        try:
-            graph_info = get_graph_info(input_path)
-        except Exception as e:
-            result["status"] = f"error: {str(e)[:100]}"
-            return result
-    result["vertices"] = graph_info["vertices"]
-    result["edges"] = graph_info["edges"]
-
-    # Select command template
-    cmd_template = solver["run_command"]
-    if use_heuristic and heuristic_available:
-        cmd_template = solver["run_command_heuristic"]
-
     mode = solver.get("run_mode", "stdin_stdout")
     sdir = solver_dir(solver_name)
 
@@ -328,6 +308,29 @@ def run_solver(
         "stderr": "",
         "stdout_raw": "",
     } if debug else None
+
+    # Parse graph info defensively: a single malformed instance must not abort
+    # the whole benchmark run (the exception used to propagate out of the
+    # process pool and discard every result collected so far). The reason
+    # goes into the debug record too, so --debug shows why nothing ran.
+    if graph_info is None:
+        try:
+            graph_info = get_graph_info(input_path)
+        except Exception as e:
+            graph_info = e
+    if isinstance(graph_info, Exception):
+        result["status"] = f"error: {str(graph_info)[:100]}"
+        if _debug is not None:
+            _debug["stderr"] = f"instance not read: {graph_info}"
+            result["_debug"] = _debug
+        return result
+    result["vertices"] = graph_info["vertices"]
+    result["edges"] = graph_info["edges"]
+
+    # Select command template
+    cmd_template = solver["run_command"]
+    if use_heuristic and heuristic_available:
+        cmd_template = solver["run_command_heuristic"]
 
     # Per-run private working directory: converted inputs and solver output
     # files live here so concurrent runs and stale files from earlier runs can
