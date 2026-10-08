@@ -260,5 +260,213 @@
     "authors": "Philippe Jégou, Hanan Kanso, Cyril Terrioux",
     "pace_year": 2017,
     "description": "Min-fill with bipartite graph improvements"
+  },
+  {
+    "name": "flowcutter-16",
+    "type": "heuristic",
+    "language": "cpp",
+    "repo": "https://github.com/ben-strasser/flow-cutter-pace16.git",
+    "commit": "616286c1cf840fa376dcae54ac744a551fe0a9db",
+    "build_steps": [
+      "grep -q '#include <string>' src/list_graph.h || sed -i 's/#include <tuple>/#include <tuple>\\n#include <string>/' src/list_graph.h",
+      "./build.sh"
+    ],
+    "run_command": "./flow_cutter_pace16 < {input}",
+    "run_mode": "stdin_stdout_signal",
+    "input_format": "pace_gr",
+    "output_format": "pace_td",
+    "authors": "Ben Strasser",
+    "pace_year": 2016,
+    "description": "FlowCutter PACE 2016 submission (heuristic sequential track winner)",
+    "notes": "The 2016 predecessor of flowcutter-17; kept separately because the two differ. list_graph.h declares a std::string parameter without including <string>, which recent g++ rejects, so the build step inserts the include. build.sh also builds flow_cutter_parallel_pace16 (OpenMP), which the runner does not use."
+  },
+  {
+    "name": "cvo2",
+    "type": "heuristic",
+    "language": "cpp",
+    "repo": "https://github.com/willmlam/CVO2.git",
+    "commit": "e247e64c9d75b8ef1372954c38d37a4ad67f34ac",
+    "build_steps": [
+      "sed -i 's/^\\tARE::ARP \\*p = cvocontext->_Problem ;/\\tARE::ARP *p ; p = cvocontext->_Problem ;/' ARP/CVO/VariableOrderComputation.cpp",
+      "sed -i 's/if (Left <= 0 && m_db_tree\\[j\\].m_RC > 0) {/if (Left[i] <= 0 \\&\\& m_db_tree[j].m_RC > 0) {/' ARP/Utils/AVLtreeSimple.cpp",
+      "mkdir -p build",
+      "cd build && cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 .. && make -j$(nproc)"
+    ],
+    "tools": [
+      "cmake",
+      "make"
+    ],
+    "run_command": "./build/tw-heuristic < {input}",
+    "run_mode": "stdin_stdout_signal",
+    "input_format": "pace_gr",
+    "output_format": "pace_td",
+    "authors": "Kalev Kask, William Lam",
+    "pace_year": 2016,
+    "description": "CVO2: PACE 2016 heuristic parallel track winner (randomised min-fill orderings, multithreaded)",
+    "notes": "Uses all but one CPU core by default. Two source fixes are needed for current g++: a goto that jumps over an initialised pointer declaration (split into declaration and assignment) and an ordered comparison of a pointer with 0 in AVLtreeSimple.cpp (the index [i] the surrounding code uses was missing). The cmake policy floor keeps CMake 4 from refusing the project's cmake_minimum_required(2.8)."
+  },
+  {
+    "name": "foxepstein-2016",
+    "type": "heuristic",
+    "language": "cpp",
+    "repo": "https://github.com/efoxepstein/2016-pace-challenge.git",
+    "commit": "2f4acb30b5c48608859ff27b5f4e217ee8346ca5",
+    "build_steps": [
+      "grep -q '#include <limits>' src/minimum_degree_heuristic.hpp || sed -i '0,/^#include/s//#include <limits>\\n#include/' src/minimum_degree_heuristic.hpp",
+      "make CXX=g++"
+    ],
+    "tools": [
+      "make"
+    ],
+    "run_command": "./bin/tw-heuristic < {input}",
+    "run_mode": "stdin_stdout_signal",
+    "input_format": "pace_gr",
+    "output_format": "pace_td",
+    "authors": "Eli Fox-Epstein",
+    "pace_year": 2016,
+    "description": "Minimum-degree / minimum-fill-in heuristics (PACE 2016 heuristic track, 2nd place)",
+    "notes": "The header uses std::numeric_limits without including <limits>; the build step adds it. CXX=g++ because the Makefile prefers clang++ when present and its -Werror set was tuned for an older compiler."
+  },
+  {
+    "name": "turbocharge-2016",
+    "type": "heuristic",
+    "language": "java",
+    "repo": "https://github.com/mfjones/pace2016.git",
+    "commit": "2b7f289e4d182799803a014d0ee1d76a4de70c1f",
+    "build_steps": [
+      "make"
+    ],
+    "tools": [
+      "make"
+    ],
+    "run_command": "java -cp . Main -s 0 < {input}",
+    "run_mode": "stdin_stdout_signal",
+    "input_format": "pace_gr",
+    "output_format": "pace_td",
+    "authors": "Serge Gaspers, Joachim Gudmundsson, Mitchell Jones, Julian Mestre, Stefan Rümmele",
+    "pace_year": 2016,
+    "description": "Turbocharging treewidth heuristics (PACE 2016 heuristic track, 4th place)",
+    "notes": "The repository's tw-heuristic shell script stages the input in /dev/shm and forwards SIGTERM to the JVM; the runner calls the Java main class directly, whose shutdown hook prints the best decomposition on SIGTERM. Seed fixed at 0 for reproducibility."
+  },
+  {
+    "name": "iitm-2016",
+    "type": "heuristic",
+    "language": "cpp",
+    "repo": "https://github.com/mrprajesh/pacechallenge.git",
+    "commit": "e9c550ae06017b2095c476f672472d3d4b5da13e",
+    "build_steps": [
+      "make"
+    ],
+    "tools": [
+      "make"
+    ],
+    "run_command": "./tw-heuristic < {input}",
+    "run_mode": "stdin_stdout_signal",
+    "input_format": "pace_gr",
+    "output_format": "pace_td",
+    "authors": "Kaustubh Joglekar, Akshay Kamble, Rajesh Pandian M",
+    "pace_year": 2016,
+    "description": "Chordal completion by cycle elimination (PACE 2016 heuristic track, 6th place)",
+    "notes": "Prints a trivial one-bag decomposition on SIGTERM until its first chordal completion finishes, which on PACE 2017 instances of a few hundred vertices takes longer than a minute, so short timeouts record width n-1."
+  },
+  {
+    "name": "bz-treewidth",
+    "type": "exact",
+    "language": "csharp",
+    "repo": "https://github.com/TomvdZanden/BZTreewidth.git",
+    "commit": "bfbf736a98eea412c7ba2de4a21280816d9b8bbb",
+    "build_steps": [
+      "mkdir -p bz-dp && tf=net$(dotnet --version | cut -d. -f1).0 && printf '%s\\n' '<Project Sdk=\"Microsoft.NET.Sdk\">' '  <PropertyGroup>' '    <OutputType>Exe</OutputType>' \"    <TargetFramework>$tf</TargetFramework>\" '    <AssemblyName>BZTreewidth-DP</AssemblyName>' '    <RootNamespace>BZTreewidth</RootNamespace>' '    <Nullable>disable</Nullable>' '    <ImplicitUsings>disable</ImplicitUsings>' '    <Optimize>true</Optimize>' '    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>' '    <DefineConstants>SEQUENTIAL</DefineConstants>' '    <NoWarn>CS0168;CS0219;CS0162;CS0649;CS0414;CS8981</NoWarn>' '  </PropertyGroup>' '  <ItemGroup>' '    <Compile Include=\"../BZTreewidth/*.cs\" />' '  </ItemGroup>' '</Project>' > bz-dp/bz-dp.csproj",
+      "dotnet build bz-dp/bz-dp.csproj -c Release -o bz-dp/out"
+    ],
+    "run_command": "dotnet bz-dp/out/BZTreewidth-DP.dll < {input}",
+    "run_mode": "stdin_stdout",
+    "input_format": "pace_gr",
+    "output_format": "pace_td",
+    "authors": "Hans L. Bodlaender, Tom C. van der Zanden",
+    "pace_year": 2016,
+    "description": "BZTreewidth: dynamic programming over vertex subsets with safe separators (PACE 2016 exact track, 2nd place)",
+    "notes": "The repository's Makefile compiles twelve variants with Mono's dmcs, which current distributions no longer ship; the build step instead generates a .NET SDK project for the BZTreewidth-DP variant (SEQUENTIAL), the first one in the Makefile and the one used by its own test target, targeting whatever .NET major version the installed SDK provides. The other variants (DFS, LIMIT_SEPARATOR, DFS_MMW, ...) are preprocessor symbols in BZTreewidth/*.cs."
+  },
+  {
+    "name": "arboretum",
+    "type": "both",
+    "language": "rust",
+    "repo": "https://github.com/jmeintrup/arboretum.git",
+    "commit": "e4eab86490d9511c57943666926d1956111ea9be",
+    "build_steps": [
+      "cargo update num-bigint --precise 0.4.3",
+      "cargo build --release --features \"cli handle-ctrlc\""
+    ],
+    "run_command": "./target/release/arboretum-cli < {input}",
+    "run_command_heuristic": "./target/release/arboretum-cli -m heuristic -t {timeout_soft} < {input}",
+    "run_mode": "stdin_stdout_signal",
+    "input_format": "pace_gr",
+    "output_format": "pace_td",
+    "authors": "Johannes Meintrup",
+    "pace_year": null,
+    "description": "Rust library/CLI: positive-instance-driven exact algorithm with safe separators, tabu-search heuristic",
+    "notes": "Cargo.lock pins num-bigint 0.4.0, which no longer compiles with current rustc; the first step bumps it to 0.4.3 (semver-compatible). The handle-ctrlc feature makes the heuristic print its best decomposition on SIGTERM; -t makes it stop by itself before the runner's deadline. The exact command ignores both and runs to completion."
+  },
+  {
+    "name": "goatd",
+    "type": "heuristic",
+    "language": "rust",
+    "repo": "https://github.com/Tractables/goatd.git",
+    "commit": "ea1cf4c8baa1c5bc2c590486d658bb1b1f27e703",
+    "build_steps": [
+      "cargo build --release"
+    ],
+    "run_command": "./target/release/goatd - --budget $(( {timeout_soft} * 500 )) --hard-budget $(( {timeout_soft} * 1000 )) < {input}",
+    "run_mode": "stdin_stdout_signal",
+    "input_format": "pace_gr",
+    "output_format": "pace_td",
+    "authors": "Guy Van den Broeck",
+    "pace_year": null,
+    "description": "goatd: portfolio of elimination orders, nested dissection and FlowCutter under one time budget (2026)",
+    "notes": "Needs Rust 1.88+ (edition 2024) and a C++20 compiler (g++ 12+ or clang) for the vendored FlowCutter. The soft budget is half the internal limit and the hard budget the whole of it, in milliseconds, so the portfolio's final stages finish before the runner's deadline; it also prints its best decomposition on SIGTERM."
+  },
+  {
+    "name": "cliquetrees-jl",
+    "type": "both",
+    "language": "julia",
+    "repo": "https://github.com/AlgebraicJulia/CliqueTrees.jl.git",
+    "commit": "ab218bd2d7e88d5d1541f2e5e696681fe9b2375c",
+    "build_steps": [
+      "julia -e 'using Pkg; Pkg.activate(\".\"); Pkg.instantiate()'",
+      "cp ../../config/cliquetrees_wrapper.jl cliquetrees_wrapper.jl"
+    ],
+    "run_command": "julia --project=. cliquetrees_wrapper.jl {input}",
+    "run_command_heuristic": "julia --project=. cliquetrees_wrapper.jl {input} heuristic",
+    "run_mode": "file",
+    "input_format": "pace_gr",
+    "output_format": "pace_td",
+    "authors": "Richard Samuelson",
+    "pace_year": null,
+    "description": "CliqueTrees.jl: PIDBT exact algorithm with safe rules/separators, min-fill heuristic (Julia)",
+    "notes": "The wrapper (config/cliquetrees_wrapper.jl) parses the .gr file, runs SafeRules(SafeSeparators(PIDBT())) or MF() and writes a .td; a forest from a disconnected graph is chained into one tree. As with treewidth-solver-jl, every run pays Julia's package load and compile time (10-15 s)."
+  },
+  {
+    "name": "libtw",
+    "type": "both",
+    "language": "java",
+    "repo": "https://github.com/WPettersson/libtw.git",
+    "commit": "ecd21e2fe6e462a7e986c263471ec1480b25d855",
+    "build_steps": [
+      "find libtw/src -name '*.java' > sources.txt",
+      "mkdir -p bin",
+      "javac -nowarn -d bin @sources.txt",
+      "cp ../../config/LibtwRunner.java .",
+      "javac -nowarn -cp bin -d bin LibtwRunner.java"
+    ],
+    "run_command": "java -cp bin LibtwRunner {input}",
+    "run_command_heuristic": "java -cp bin LibtwRunner {input} greedy",
+    "run_mode": "file",
+    "input_format": "pace_gr",
+    "output_format": "pace_td",
+    "authors": "Thomas van Dijk, Jan-Pieter van den Heuvel, Wouter Slob",
+    "pace_year": null,
+    "description": "LibTW (treewidth.com, 2006): subset dynamic programming exact algorithm, greedy fill-in heuristic (Java)",
+    "notes": "LibTW is a library without a PACE front end, so config/LibtwRunner.java reads the .gr file and prints 'c width <w>' (no bags, so --validate cannot check it). Exact mode runs TreewidthDP seeded with the greedy fill-in bound; it holds every subset of vertices and only finishes on small graphs. 'quickbb' selects LibTW's Java port of QuickBB instead. The GitHub mirror is the treewidth.com release with small fixes."
   }
 ]

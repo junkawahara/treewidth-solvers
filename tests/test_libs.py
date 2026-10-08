@@ -703,6 +703,37 @@ def test_every_configured_repo_is_pinned_to_a_full_sha():
         assert re.fullmatch(r"[0-9a-f]{40}", entry.get("commit", "")), entry["name"]
 
 
+def test_every_configured_solver_is_well_formed():
+    """Each solvers.json entry has the keys the registry and runner read, a
+    language the dependency check knows, and command templates that use only
+    the placeholders run_solver substitutes (a typo there would surface as a
+    KeyError on the first benchmark run rather than at configuration time)."""
+    import string
+
+    import lib.solver_registry as reg
+
+    placeholders = {
+        "input", "input_dir", "instance_name", "output_td", "output_stat",
+        "output_dir", "timeout", "timeout_soft",
+    }
+    seen = set()
+    for s in reg.load_solvers():
+        assert s["name"] not in seen, s["name"]
+        seen.add(s["name"])
+        for key in ("type", "language", "repo", "commit", "build_steps",
+                    "run_command", "run_mode", "description"):
+            assert key in s, (s["name"], key)
+        assert s["type"] in ("exact", "heuristic", "both"), s["name"]
+        assert s["language"] in reg.LANGUAGE_TOOLS, (s["name"], s["language"])
+        assert s["run_mode"] in ("stdin_stdout", "stdin_stdout_signal", "file"), s["name"]
+        assert (s["type"] == "both") == ("run_command_heuristic" in s), s["name"]
+        for cmd in (s["run_command"], s.get("run_command_heuristic", "")):
+            used = {f for _, f, _, _ in string.Formatter().parse(cmd) if f}
+            assert used <= placeholders, (s["name"], used - placeholders)
+            # Every command must name the instance somewhere.
+            assert used & {"input", "input_dir", "instance_name"} or not cmd, s["name"]
+
+
 def test_complete_clone_without_marker_is_adopted_not_deleted(tmp_path):
     repo = tmp_path / "repo"
     _make_repo(repo)

@@ -13,14 +13,16 @@ Required:
 - Git
 
 Per-solver dependencies:
-- **Java solvers** (twalgor-tw, twalgor-rtw, tamaki-2017, jdrasil): JDK 8+
-- **C/C++ solvers** (tamaki-2016, tdlib-p17, flowcutter-17, htd, minfill-mrs, minfillbg-mrs): GCC 7+ (g++ with C++17 support) and `make`
+- **Java solvers** (twalgor-tw, twalgor-rtw, tamaki-2017, jdrasil, turbocharge-2016, libtw): JDK 8+
+- **C/C++ solvers** (tamaki-2016, tdlib-p17, flowcutter-17, flowcutter-16, htd, minfill-mrs, minfillbg-mrs, cvo2, foxepstein-2016, iitm-2016): GCC 7+ (g++ with C++17 support) and `make`
   - **tdlib-p17** needs C++17 (the build inserts an inline variable), Boost, autotools and libtool (`sudo apt install libboost-graph-dev libboost-thread-dev autoconf automake libtool` on Debian/Ubuntu)
-  - **htd** requires CMake (`sudo apt install cmake` on Debian/Ubuntu)
+  - **htd** and **cvo2** require CMake (`sudo apt install cmake` on Debian/Ubuntu)
 - **QuickBB**: g++ with C++11 support, autotools (autoconf, automake)
-- **TreeWidthSolver.jl**: Julia 1.10+ (required by the package's `Project.toml`)
+- **Rust solvers** (arboretum, goatd): a Rust toolchain with `cargo` (<https://rustup.rs>); goatd needs Rust 1.88+ and a C++20 compiler (g++ 12+) for its vendored FlowCutter
+- **bz-treewidth**: a .NET SDK 8 or newer (`dotnet`, e.g. `sudo apt install dotnet-sdk-8.0`); the project's own Mono-based Makefile is not used
+- **TreeWidthSolver.jl, CliqueTrees.jl**: Julia 1.10+ (required by the packages' `Project.toml`)
 
-`setup.py` checks these up front (compilers, `make`, `cmake`, `autoreconf`, `jar`, Boost headers, ...) and skips a solver whose tools are missing, naming them.
+`setup.py` checks these up front (compilers, `make`, `cmake`, `autoreconf`, `jar`, `cargo`, `dotnet`, Boost headers, ...) and skips a solver whose tools are missing, naming them.
 
 ## Quick Start
 
@@ -87,6 +89,10 @@ Results are appended to the CSV as each run finishes, so an interrupted run (Ctr
 | jdrasil | Bannach et al. | Java | Modular treewidth solver framework |
 | quickbb | Gogate, Dechter | C++ | Branch-and-bound exact solver |
 | treewidth-solver-jl | ArrogantGao | Julia | Bouchitte-Todinca algorithm (Julia) |
+| bz-treewidth | Bodlaender, van der Zanden | C# | Subset DP with safe separators (PACE 2016 exact track, 2nd place) |
+| arboretum | Johannes Meintrup | Rust | Positive-instance-driven DP with safe separators; also a tabu-search heuristic |
+| cliquetrees-jl | Richard Samuelson | Julia | CliqueTrees.jl: PIDBT with safe rules/separators; also a min-fill heuristic |
+| libtw | van Dijk, van den Heuvel, Slob | Java | LibTW (2006): subset DP; also a greedy fill-in heuristic |
 
 ### Heuristic Solvers
 
@@ -96,8 +102,21 @@ Results are appended to the CSV as each run finishes, so an interrupted run (Ctr
 | htd | Abseher et al. | C++ | Hypertree/tree decomposition library (TU Wien) |
 | minfill-mrs | Jegou et al. | C++ | Min-fill heuristic with restarts |
 | minfillbg-mrs | Jegou et al. | C++ | Min-fill with bipartite graph improvements |
+| flowcutter-16 | Ben Strasser | C++ | FlowCutter as submitted to PACE 2016 (heuristic sequential track winner) |
+| cvo2 | Kask, Lam | C++ | Randomised min-fill orderings, multithreaded (PACE 2016 heuristic parallel track winner) |
+| foxepstein-2016 | Eli Fox-Epstein | C++ | Minimum-degree / minimum-fill-in (PACE 2016 heuristic track, 2nd place) |
+| turbocharge-2016 | Gaspers et al. | Java | Turbocharging greedy heuristics (PACE 2016 heuristic track, 4th place) |
+| iitm-2016 | Joglekar, Kamble, Pandian | C++ | Chordal completion by cycle elimination (PACE 2016 heuristic track, 6th place) |
+| goatd | Guy Van den Broeck | Rust | Portfolio of elimination orders, nested dissection and FlowCutter under one budget (2026) |
 
-**Note**: tamaki-2017, tdlib-p17, and jdrasil support both exact and heuristic modes.
+**Note**: tamaki-2017, tdlib-p17, jdrasil, arboretum, cliquetrees-jl and libtw support both exact and heuristic modes.
+
+Solver-specific details (source patches a build needs, which upstream variant is built, output quirks) are recorded in the `notes` field of each entry in `config/solvers.json`. Points worth knowing before reading results:
+
+- **cvo2** uses all but one CPU core, so compare it with the others with that in mind (or run it alone).
+- **iitm-2016** answers SIGTERM with a trivial one-bag decomposition until its first chordal completion finishes, which takes over a minute on PACE 2017 instances, so short timeouts record width n-1.
+- **libtw** and **quickbb** print only the width, not the bags, so `--validate` cannot check them. libtw's exact algorithm stores every vertex subset and finishes only on small graphs.
+- **bz-treewidth** builds the `BZTreewidth-DP` variant (the first in the upstream Makefile) with the .NET SDK instead of Mono; the other eleven variants are preprocessor symbols.
 
 ## Benchmarks
 
@@ -126,7 +145,7 @@ tamaki-2017,exact,pace2017-instances,ex001,100,250,12,1.234,ok,312.5
 |--------|---------|
 | `mode` | `exact` or `heuristic`: the command that actually ran. |
 | `treewidth` | The width reported by the solver (empty unless `status` is `ok`). For a heuristic this is an upper bound; for an exact solver that finished, the exact treewidth. |
-| `time_sec` | Wall-clock seconds for the solver process, including interpreter start-up: JVM start-up for the Java solvers and, for TreeWidthSolver.jl, loading and compiling the Julia package on every run, which can take several seconds. For a timed-out run it equals `--timeout`. |
+| `time_sec` | Wall-clock seconds for the solver process, including interpreter start-up: JVM start-up for the Java solvers and, for TreeWidthSolver.jl and CliqueTrees.jl, loading and compiling the Julia package on every run, which takes 10-15 seconds. For a timed-out run it equals `--timeout`. |
 | `status` | See below. |
 | `memory_mb` | Peak memory of the solver's whole process group (solver, wrapper shell, JVM), measured as proportional set size (PSS) sampled every 100 ms, so very short spikes may be missed. Linux only; empty elsewhere. |
 
@@ -183,6 +202,16 @@ This repository does not redistribute any solver or benchmark source code. All e
 | htd | GPL-3.0 | [mabseher/htd](https://github.com/mabseher/htd) |
 | minfill-mrs | GPL-3.0 | [td-mrs/minfill_mrs](https://github.com/td-mrs/minfill_mrs) |
 | minfillbg-mrs | GPL-3.0 | [td-mrs/minfillbg_mrs](https://github.com/td-mrs/minfillbg_mrs) |
+| flowcutter-16 | BSD-2-Clause | [ben-strasser/flow-cutter-pace16](https://github.com/ben-strasser/flow-cutter-pace16) |
+| cvo2 | MIT | [willmlam/CVO2](https://github.com/willmlam/CVO2) |
+| foxepstein-2016 | GPL-3.0 | [efoxepstein/2016-pace-challenge](https://github.com/efoxepstein/2016-pace-challenge) |
+| turbocharge-2016 | MIT | [mfjones/pace2016](https://github.com/mfjones/pace2016) |
+| iitm-2016 | GPL-2.0 | [mrprajesh/pacechallenge](https://github.com/mrprajesh/pacechallenge) |
+| bz-treewidth | MIT | [TomvdZanden/BZTreewidth](https://github.com/TomvdZanden/BZTreewidth) |
+| arboretum | MIT | [jmeintrup/arboretum](https://github.com/jmeintrup/arboretum) |
+| goatd | Apache-2.0 | [Tractables/goatd](https://github.com/Tractables/goatd) |
+| cliquetrees-jl | MIT | [AlgebraicJulia/CliqueTrees.jl](https://github.com/AlgebraicJulia/CliqueTrees.jl) |
+| libtw | LGPL-2.1 | [WPettersson/libtw](https://github.com/WPettersson/libtw) (mirror of treewidth.com) |
 
 ### Benchmark Licenses
 

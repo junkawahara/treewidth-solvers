@@ -13,14 +13,16 @@
 - Git
 
 ソルバーごとの依存:
-- **Java ソルバー** (twalgor-tw, twalgor-rtw, tamaki-2017, jdrasil): JDK 8+
-- **C/C++ ソルバー** (tamaki-2016, tdlib-p17, flowcutter-17, htd, minfill-mrs, minfillbg-mrs): GCC 7+（C++17 対応の g++）と `make`
+- **Java ソルバー** (twalgor-tw, twalgor-rtw, tamaki-2017, jdrasil, turbocharge-2016, libtw): JDK 8+
+- **C/C++ ソルバー** (tamaki-2016, tdlib-p17, flowcutter-17, flowcutter-16, htd, minfill-mrs, minfillbg-mrs, cvo2, foxepstein-2016, iitm-2016): GCC 7+（C++17 対応の g++）と `make`
   - **tdlib-p17** は C++17（ビルド時にインライン変数を挿入します）、Boost、autotools、libtool が必要です（Debian/Ubuntu: `sudo apt install libboost-graph-dev libboost-thread-dev autoconf automake libtool`）
-  - **htd** は CMake が必要です（Debian/Ubuntu: `sudo apt install cmake`）
+  - **htd** と **cvo2** は CMake が必要です（Debian/Ubuntu: `sudo apt install cmake`）
 - **QuickBB**: C++11 対応の g++、autotools (autoconf, automake)
-- **TreeWidthSolver.jl**: Julia 1.10+（パッケージの `Project.toml` が要求）
+- **Rust ソルバー** (arboretum, goatd): `cargo` を含む Rust ツールチェーン（<https://rustup.rs>）。goatd は Rust 1.88+ と、同梱の FlowCutter をビルドするための C++20 コンパイラ（g++ 12+）が必要です
+- **bz-treewidth**: .NET SDK 8 以上（`dotnet`、例: `sudo apt install dotnet-sdk-8.0`）。上流の Mono ベースの Makefile は使いません
+- **TreeWidthSolver.jl, CliqueTrees.jl**: Julia 1.10+（パッケージの `Project.toml` が要求）
 
-`setup.py` はこれら（コンパイラ、`make`、`cmake`、`autoreconf`、`jar`、Boost ヘッダなど）を事前に確認し、足りないソルバーは不足しているものを表示してスキップします。
+`setup.py` はこれら（コンパイラ、`make`、`cmake`、`autoreconf`、`jar`、`cargo`、`dotnet`、Boost ヘッダなど）を事前に確認し、足りないソルバーは不足しているものを表示してスキップします。
 
 ## クイックスタート
 
@@ -87,6 +89,10 @@ python run.py --solver all --benchmark all --timeout 60 --max-instances 5
 | jdrasil | Bannach et al. | Java | モジュラー treewidth ソルバーフレームワーク |
 | quickbb | Gogate, Dechter | C++ | 分枝限定法による厳密ソルバー |
 | treewidth-solver-jl | ArrogantGao | Julia | Bouchitte-Todinca アルゴリズム (Julia) |
+| bz-treewidth | Bodlaender, van der Zanden | C# | 安全セパレータ付き部分集合 DP（PACE 2016 exact track 2 位） |
+| arboretum | Johannes Meintrup | Rust | 安全セパレータ付き positive-instance-driven DP。タブー探索ヒューリスティックも持つ |
+| cliquetrees-jl | Richard Samuelson | Julia | CliqueTrees.jl: safe rules/separators 付き PIDBT。min-fill ヒューリスティックも持つ |
+| libtw | van Dijk, van den Heuvel, Slob | Java | LibTW (2006): 部分集合 DP。greedy fill-in ヒューリスティックも持つ |
 
 ### ヒューリスティックソルバー (Heuristic)
 
@@ -96,8 +102,21 @@ python run.py --solver all --benchmark all --timeout 60 --max-instances 5
 | htd | Abseher et al. | C++ | 超木/木分解ライブラリ (TU Wien) |
 | minfill-mrs | Jégou et al. | C++ | リスタート付き Min-fill ヒューリスティック |
 | minfillbg-mrs | Jégou et al. | C++ | 二部グラフ改良版 Min-fill |
+| flowcutter-16 | Ben Strasser | C++ | PACE 2016 提出版 FlowCutter（heuristic sequential track 優勝） |
+| cvo2 | Kask, Lam | C++ | ランダム化 min-fill 順序のマルチスレッド探索（PACE 2016 heuristic parallel track 優勝） |
+| foxepstein-2016 | Eli Fox-Epstein | C++ | Minimum-degree / minimum-fill-in（PACE 2016 heuristic track 2 位） |
+| turbocharge-2016 | Gaspers et al. | Java | 貪欲ヒューリスティックの turbocharging（PACE 2016 heuristic track 4 位） |
+| iitm-2016 | Joglekar, Kamble, Pandian | C++ | サイクル除去による弦グラフ化（PACE 2016 heuristic track 6 位） |
+| goatd | Guy Van den Broeck | Rust | 消去順序・nested dissection・FlowCutter を一つの時間予算で回すポートフォリオ (2026) |
 
-**注**: tamaki-2017, tdlib-p17, jdrasil は exact と heuristic の両方に対応しています。
+**注**: tamaki-2017, tdlib-p17, jdrasil, arboretum, cliquetrees-jl, libtw は exact と heuristic の両方に対応しています。
+
+ソルバー固有の事情（ビルドに必要なソースの修正、どの上流バリアントをビルドしているか、出力の癖）は `config/solvers.json` の各エントリの `notes` に記録しています。結果を読む前に知っておくべき点:
+
+- **cvo2** は CPU コアを 1 つ残して全部使うので、他と比較する際は注意してください（単独で走らせるのが無難です）。
+- **iitm-2016** は最初の弦グラフ化が終わるまで SIGTERM に対して自明な 1 バッグ分解を返します。PACE 2017 インスタンスでは 1 分以上かかるため、短いタイムアウトでは幅 n-1 が記録されます。
+- **libtw** と **quickbb** は幅だけを出力しバッグを出さないので、`--validate` では検証できません。libtw の厳密アルゴリズムは全頂点部分集合を保持するため、小さいグラフでしか終わりません。
+- **bz-treewidth** は上流 Makefile の先頭にある `BZTreewidth-DP` バリアントを Mono ではなく .NET SDK でビルドします。残り 11 バリアントはプリプロセッサシンボルの違いです。
 
 ## ベンチマーク一覧
 
@@ -126,7 +145,7 @@ tamaki-2017,exact,pace2017-instances,ex001,100,250,12,1.234,ok,312.5
 |----|------|
 | `mode` | `exact` または `heuristic`。実際に走ったコマンド。 |
 | `treewidth` | ソルバーが報告した幅（`status` が `ok` のときのみ）。ヒューリスティックでは上界、完了した厳密ソルバーでは厳密な treewidth。 |
-| `time_sec` | ソルバープロセスの実時間（秒）。インタプリタの起動時間を含みます。Java ソルバーでは JVM 起動、TreeWidthSolver.jl では毎回の Julia パッケージの読込・コンパイル（数秒かかることがあります）が入ります。タイムアウト時は `--timeout` の値。 |
+| `time_sec` | ソルバープロセスの実時間（秒）。インタプリタの起動時間を含みます。Java ソルバーでは JVM 起動、TreeWidthSolver.jl と CliqueTrees.jl では毎回の Julia パッケージの読込・コンパイル（10〜15 秒）が入ります。タイムアウト時は `--timeout` の値。 |
 | `status` | 下表参照。 |
 | `memory_mb` | ソルバーのプロセスグループ全体（ソルバー、ラッパーシェル、JVM）のピークメモリ。PSS（proportional set size）を 100ms 間隔でサンプリングするため、ごく短いピークは取りこぼすことがあります。Linux のみ。他では空欄。 |
 
@@ -183,6 +202,16 @@ p tw <頂点数> <辺数>
 | htd | GPL-3.0 | [mabseher/htd](https://github.com/mabseher/htd) |
 | minfill-mrs | GPL-3.0 | [td-mrs/minfill_mrs](https://github.com/td-mrs/minfill_mrs) |
 | minfillbg-mrs | GPL-3.0 | [td-mrs/minfillbg_mrs](https://github.com/td-mrs/minfillbg_mrs) |
+| flowcutter-16 | BSD-2-Clause | [ben-strasser/flow-cutter-pace16](https://github.com/ben-strasser/flow-cutter-pace16) |
+| cvo2 | MIT | [willmlam/CVO2](https://github.com/willmlam/CVO2) |
+| foxepstein-2016 | GPL-3.0 | [efoxepstein/2016-pace-challenge](https://github.com/efoxepstein/2016-pace-challenge) |
+| turbocharge-2016 | MIT | [mfjones/pace2016](https://github.com/mfjones/pace2016) |
+| iitm-2016 | GPL-2.0 | [mrprajesh/pacechallenge](https://github.com/mrprajesh/pacechallenge) |
+| bz-treewidth | MIT | [TomvdZanden/BZTreewidth](https://github.com/TomvdZanden/BZTreewidth) |
+| arboretum | MIT | [jmeintrup/arboretum](https://github.com/jmeintrup/arboretum) |
+| goatd | Apache-2.0 | [Tractables/goatd](https://github.com/Tractables/goatd) |
+| cliquetrees-jl | MIT | [AlgebraicJulia/CliqueTrees.jl](https://github.com/AlgebraicJulia/CliqueTrees.jl) |
+| libtw | LGPL-2.1 | [WPettersson/libtw](https://github.com/WPettersson/libtw)（treewidth.com のミラー） |
 
 ### ベンチマークのライセンス
 

@@ -58,6 +58,9 @@ LANGUAGE_TOOLS = {
     "c": ["gcc"],
     "cpp": ["g++"],
     "julia": ["julia"],
+    # cargo drives rustc; the .NET SDK's dotnet both builds and runs C#.
+    "rust": ["cargo"],
+    "csharp": ["dotnet"],
 }
 
 
