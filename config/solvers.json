@@ -111,7 +111,8 @@
     "output_format": "pace_td",
     "authors": "Lukas Larisch, Felix Salfelder",
     "pace_year": 2017,
-    "description": "TDLIB PACE 2017 submission (C++ port of Tamaki + heuristic)"
+    "description": "TDLIB PACE 2017 submission (C++ port of Tamaki + heuristic)",
+    "notes": "tw-exact and tw-heuristic are both 'grtd -m <mask>' wrappers; -m is a bitmask selecting the algorithm threads (tdlib/grtd/grtd.cc): 64 = USE_TA, the Tamaki exact algorithm; 128 = USE_P17, the PACE 2017 heuristics. So the exact/heuristic switch is real, not a parameter tweak."
   },
   {
     "name": "jdrasil",
