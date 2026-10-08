@@ -11,33 +11,67 @@ from lib.format_converter import read_pace_gr
 
 
 def parse_td(text):
-    """Parse .td format text into bags and tree edges."""
+    """Parse .td format text.
+
+    Returns (bags, tree_edges, n_bags, width_plus_one, n_vertices, problems).
+    problems lists structural defects found while parsing -- a bag id given
+    twice, a tree edge naming a bag that does not exist -- as human-readable
+    strings; validate() reports them as validation errors so the cause is
+    named directly instead of showing up only as a bag-count mismatch.
+
+    Raises ValueError (never IndexError) on a header, bag or tree-edge line
+    that cannot be parsed: a short "s td" header, a "b" line with no id, or
+    non-integer tokens. Other lines are ignored as before.
+    """
     bags = {}
     tree_edges = []
     n_bags = 0
     width_plus_one = 0
     n_vertices = 0
+    problems = []
+    seen_header = False
 
-    for line in text.strip().split("\n"):
-        line = line.strip()
+    for lineno, raw in enumerate(text.strip().split("\n"), 1):
+        line = raw.strip()
         if not line or line.startswith("c"):
             continue
-        if line.startswith("s td"):
-            parts = line.split()
-            n_bags = int(parts[2])
-            width_plus_one = int(parts[3])
-            n_vertices = int(parts[4])
-        elif line.startswith("b"):
-            parts = line.split()
-            bag_id = int(parts[1])
-            vertices = set(int(x) for x in parts[2:])
-            bags[bag_id] = vertices
-        else:
-            parts = line.split()
-            if len(parts) == 2:
+        parts = line.split()
+        try:
+            if line.startswith("s td"):
+                if len(parts) < 5:
+                    raise ValueError(
+                        f"line {lineno}: expected 's td <bags> <width+1> <n>', "
+                        f"got {line!r}"
+                    )
+                if seen_header:
+                    problems.append(f"line {lineno}: second 's td' header")
+                seen_header = True
+                n_bags = int(parts[2])
+                width_plus_one = int(parts[3])
+                n_vertices = int(parts[4])
+            elif parts[0] == "b":
+                if len(parts) < 2:
+                    raise ValueError(f"line {lineno}: bag line without an id")
+                bag_id = int(parts[1])
+                vertices = set(int(x) for x in parts[2:])
+                if bag_id in bags:
+                    problems.append(f"line {lineno}: bag {bag_id} is defined twice")
+                bags[bag_id] = vertices
+            elif len(parts) == 2:
                 tree_edges.append((int(parts[0]), int(parts[1])))
+            # Anything else is solver chatter (tamaki-2016 prints
+            # "width = 2" progress lines on stdout) and is ignored.
+        except ValueError as e:
+            if str(e).startswith(f"line {lineno}:"):
+                raise
+            raise ValueError(f"line {lineno}: non-integer token in {line!r}") from None
 
-    return bags, tree_edges, n_bags, width_plus_one, n_vertices
+    for a, b in tree_edges:
+        for x in (a, b):
+            if x not in bags:
+                problems.append(f"Tree edge ({a},{b}) refers to missing bag {x}")
+
+    return bags, tree_edges, n_bags, width_plus_one, n_vertices, problems
 
 
 def validate(graph_path, td_text):
@@ -46,11 +80,11 @@ def validate(graph_path, td_text):
     Returns (is_valid, treewidth, errors) tuple.
     """
     n, edges = read_pace_gr(graph_path)
-    bags, tree_edges, n_bags, width_plus_one, td_n = parse_td(td_text)
-    errors = []
+    bags, tree_edges, n_bags, width_plus_one, td_n, problems = parse_td(td_text)
+    errors = list(problems)
 
     if not bags:
-        return False, -1, ["No bags found in decomposition"]
+        return False, -1, errors + ["No bags found in decomposition"]
 
     # Check 0: the bags must form a tree -- connected and acyclic. Without this
     # a "forest" with too few tree edges, or bags wired into a cycle, would pass

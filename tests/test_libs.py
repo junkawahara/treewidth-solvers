@@ -405,7 +405,63 @@ def test_validate_rejects_non_tree():
     td = "s td 4 2 4\nb 1 1 2\nb 2 2 3\nb 3 2 3\nb 4 3 4\n1 2\n2 3\n3 1\n3 4\n"
     is_valid, _tw, errors = validate(_gr("path4.gr"), td)
     assert not is_valid
-    assert any("tree" in e for e in errors)
+    # 4 tree edges among 4 bags: too many for a tree (the old assertion
+    # "tree" in e also matched the connectivity message).
+    assert any("4 tree edges, expected 3" in e for e in errors), errors
+    # A forest: too few edges, and the bags are disconnected.
+    td = "s td 3 2 4\nb 1 1 2\nb 2 2 3\nb 3 3 4\n1 2\n"
+    is_valid, _tw, errors = validate(_gr("path4.gr"), td)
+    assert not is_valid
+    assert any("not connected" in e for e in errors), errors
+    assert any("1 tree edges, expected 2" in e for e in errors), errors
+
+
+def test_validate_rejects_disconnected_vertex_subtree():
+    # Vertex 2 is in bags 1 and 3, which are not adjacent: condition 3 fails.
+    td = "s td 3 2 4\nb 1 1 2\nb 2 3\nb 3 2 3 4\n1 2\n2 3\n"
+    is_valid, _tw, errors = validate(_gr("path4.gr"), td)
+    assert not is_valid
+    assert any("vertex 2 are not connected" in e for e in errors), errors
+
+
+def test_validate_rejects_header_mismatch_and_out_of_range_vertex():
+    td = "s td 9 2 4\nb 1 1 2\nb 2 2 3\nb 3 3 4\n1 2\n2 3\n"
+    is_valid, _tw, errors = validate(_gr("path4.gr"), td)
+    assert not is_valid
+    assert any("declares 9 bags but 3" in e for e in errors), errors
+    td = "s td 3 3 4\nb 1 1 2\nb 2 2 3\nb 3 3 4 7\n1 2\n2 3\n"
+    is_valid, _tw, errors = validate(_gr("path4.gr"), td)
+    assert not is_valid
+    assert any("out-of-range vertex 7" in e for e in errors), errors
+
+
+def test_validate_names_duplicate_bag_ids_and_missing_bags():
+    # Bag 2 is defined twice; the header's count of 3 then disagrees with the
+    # 2 distinct bags, but the direct cause must be reported by name.
+    td = "s td 3 2 4\nb 1 1 2\nb 2 2 3\nb 2 3 4\n1 2\n2 3\n"
+    is_valid, _tw, errors = validate(_gr("path4.gr"), td)
+    assert not is_valid
+    assert any("bag 2 is defined twice" in e for e in errors), errors
+    # Tree edge to a bag that does not exist.
+    td = "s td 3 2 4\nb 1 1 2\nb 2 2 3\nb 3 3 4\n1 2\n2 5\n"
+    is_valid, _tw, errors = validate(_gr("path4.gr"), td)
+    assert not is_valid
+    assert any("refers to missing bag 5" in e for e in errors), errors
+
+
+def test_parse_td_reports_malformed_lines_as_value_error():
+    from lib.validator import parse_td
+
+    _assert_raises(ValueError, parse_td, "s td 3 2\nb 1 1 2\n")
+    _assert_raises(ValueError, parse_td, "s td 3 2 4\nb\n")
+    _assert_raises(ValueError, parse_td, "s td 3 2 4\nb 1 x\n")
+    _assert_raises(ValueError, parse_td, "s td 3 2 4\nb 1 1\n1 x\n")
+    # Solver chatter such as tamaki-2016's progress lines is still ignored.
+    bags, edges, nb, w1, n, problems = parse_td(
+        "width = 1\nc width = 1, time = 0.1\ns td 1 2 2\nb 1 1 2\n"
+    )
+    assert bags == {1: {1, 2}} and edges == [] and (nb, w1, n) == (1, 2, 2)
+    assert problems == []
 
 
 def _git(path, *args):
