@@ -92,9 +92,9 @@ python run.py --solver all --benchmark all --timeout 60 --max-instances 5
 Results are written as CSV files to the `results/` directory:
 
 ```
-solver,benchmark_set,instance,vertices,edges,treewidth,time_sec,status,memory_mb
-flowcutter-17,pace2017-instances,ex001,100,250,12,0.523,ok,
-tamaki-2017,pace2017-instances,ex001,100,250,12,1.234,ok,
+solver,mode,benchmark_set,instance,vertices,edges,treewidth,time_sec,status,memory_mb
+flowcutter-17,heuristic,pace2017-instances,ex001,100,250,12,0.523,ok,
+tamaki-2017,exact,pace2017-instances,ex001,100,250,12,1.234,ok,
 ```
 
 ## Tests

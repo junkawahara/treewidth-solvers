@@ -268,15 +268,27 @@ def run_solver(
     means read the file here.
 
     Returns dict with keys:
-      solver, instance, vertices, edges, treewidth, time_sec, status, memory_mb
+      solver, mode, instance, vertices, edges, treewidth, time_sec, status,
+      memory_mb
+    mode is "exact" or "heuristic" according to the command that actually
+    ran, not to the use_heuristic flag.
     When debug=True, also includes _debug dict with command, cwd, returncode,
     stderr, and stdout_raw.
     """
     solver = get_solver(solver_name)
     instance_name = Path(input_path).stem
 
+    # Record which command actually ran. A solver without a heuristic command
+    # runs its exact one even under --heuristic, and the CSV must say so, or
+    # exact and heuristic rows of the same solver are indistinguishable.
+    heuristic_available = "run_command_heuristic" in solver
+    mode_name = "heuristic" if use_heuristic and heuristic_available else "exact"
+    if solver.get("type") == "heuristic":
+        mode_name = "heuristic"
+
     result = {
         "solver": solver_name,
+        "mode": mode_name,
         "instance": instance_name,
         "vertices": None,
         "edges": None,
@@ -303,7 +315,7 @@ def run_solver(
 
     # Select command template
     cmd_template = solver["run_command"]
-    if use_heuristic and "run_command_heuristic" in solver:
+    if use_heuristic and heuristic_available:
         cmd_template = solver["run_command_heuristic"]
 
     mode = solver.get("run_mode", "stdin_stdout")
@@ -454,6 +466,7 @@ def run_solver(
 
 CSV_FIELDS = [
     "solver",
+    "mode",
     "benchmark_set",
     "instance",
     "vertices",

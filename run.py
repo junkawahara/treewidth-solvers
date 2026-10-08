@@ -83,9 +83,10 @@ def _interrupt_workers(pool):
 
 def _error_result(item, exc):
     """Result row for a work item whose worker raised instead of returning."""
-    solver_name, instance_path, _, bench_name, _, _, _, _ = item
+    solver_name, instance_path, _, bench_name, use_heuristic, _, _, _ = item
     return {
         "solver": solver_name,
+        "mode": "heuristic" if use_heuristic else "exact",
         "benchmark_set": bench_name,
         "instance": Path(instance_path).stem,
         "vertices": None,
@@ -211,6 +212,15 @@ def main():
     solvers = resolve_solvers(args.solver)
     benchmarks = resolve_benchmarks(args.benchmark)
 
+    if args.heuristic:
+        for name in solvers:
+            s = get_solver(name)
+            if s.get("type") == "exact" and "run_command_heuristic" not in s:
+                print(
+                    f"Warning: solver '{name}' has no heuristic mode; "
+                    f"its exact command will run (mode column says 'exact')"
+                )
+
     if not solvers:
         print("Error: no installed solvers found")
         sys.exit(1)
@@ -279,7 +289,8 @@ def main():
             tw = r["treewidth"] if r["treewidth"] is not None else "-"
             t = r["time_sec"] if r["time_sec"] is not None else "-"
             print(
-                f"[{len(results)}/{total}] {solver_name} on {bench_name}/{inst_name}"
+                f"[{len(results)}/{total}] {solver_name}[{r.get('mode', '?')}]"
+                f" on {bench_name}/{inst_name}"
                 f" tw={tw} t={t}s [{r['status']}]",
                 flush=True,
             )

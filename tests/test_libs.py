@@ -178,7 +178,7 @@ def test_parse_quickbb_stat_distinguishes_proven_from_timed_out():
 
 
 def _row(instance, status="ok", tw=1):
-    return {"solver": "s", "benchmark_set": "b", "instance": instance,
+    return {"solver": "s", "mode": "exact", "benchmark_set": "b", "instance": instance,
             "vertices": 4, "edges": 3, "treewidth": tw, "time_sec": 0.5,
             "status": status, "memory_mb": None}
 
@@ -192,8 +192,8 @@ def test_result_writer_flushes_each_row_before_close(tmp_path):
     # interrupted run loses nothing.
     lines = out.read_text().splitlines()
     assert lines[0] == ",".join(CSV_FIELDS)
-    assert lines[1].startswith("s,b,a,4,3,1,0.5,ok,")
-    assert lines[2].startswith("s,b,b,4,3,,0.5,timeout,")
+    assert lines[1].startswith("s,exact,b,a,4,3,1,0.5,ok,")
+    assert lines[2].startswith("s,exact,b,b,4,3,,0.5,timeout,")
     assert len(lines) == 3 and w.count == 2
     w.close()
     w.close()  # idempotent
@@ -290,6 +290,33 @@ def test_run_solver_classifies_nonzero_exit_as_error(tmp_path):
         fake["run_command"] = "echo 's td 1 2 4'; echo 'b 1 1 2'"
         r = runner.run_solver("fake", _gr("path4.gr"), timeout=5)
         assert r["status"] == "ok" and r["treewidth"] == 1
+    finally:
+        runner.get_solver, runner.solver_dir = orig_get, orig_dir
+
+
+def test_run_solver_records_mode_that_actually_ran(tmp_path):
+    fake = {
+        "name": "fake", "type": "exact", "language": "c",
+        "run_command": "echo 'c width 1'",
+        "run_mode": "stdin_stdout", "input_format": "pace_gr",
+        "output_format": "pace_td",
+    }
+    orig_get, orig_dir = runner.get_solver, runner.solver_dir
+    runner.get_solver = lambda name: fake
+    runner.solver_dir = lambda name: tmp_path
+    try:
+        # No heuristic command: --heuristic silently ran exact before; the
+        # row must say which one ran.
+        r = runner.run_solver("fake", _gr("path4.gr"), timeout=5, use_heuristic=True)
+        assert r["mode"] == "exact" and r["treewidth"] == 1
+        fake["run_command_heuristic"] = "echo 'c width 2'"
+        r = runner.run_solver("fake", _gr("path4.gr"), timeout=5, use_heuristic=True)
+        assert r["mode"] == "heuristic" and r["treewidth"] == 2
+        r = runner.run_solver("fake", _gr("path4.gr"), timeout=5)
+        assert r["mode"] == "exact" and r["treewidth"] == 1
+        fake["type"] = "heuristic"
+        r = runner.run_solver("fake", _gr("path4.gr"), timeout=5)
+        assert r["mode"] == "heuristic"
     finally:
         runner.get_solver, runner.solver_dir = orig_get, orig_dir
 
