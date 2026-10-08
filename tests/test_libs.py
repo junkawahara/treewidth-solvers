@@ -329,6 +329,15 @@ def test_interrupt_during_solver_kills_whole_process_group(tmp_path):
     assert runner._current_proc is None
 
 
+def test_run_with_timeout_tolerates_non_utf8_output(tmp_path):
+    out, err, timed_out, killed, rc, _mb = runner._run_with_timeout(
+        "printf 's td 1 2 2\\n\\377\\376 junk\\n'; printf '\\377' >&2",
+        str(tmp_path), None, timeout=5,
+    )
+    assert not timed_out and not killed and rc == 0
+    assert out.startswith("s td 1 2 2\n") and "\ufffd" in out and "\ufffd" in err
+
+
 def test_run_with_timeout_reports_kill_after_grace(tmp_path):
     """A solver that ignores SIGTERM is SIGKILLed after the grace period and
     the call reports killed=True; one that exits on SIGTERM is not killed."""

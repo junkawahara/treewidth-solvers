@@ -171,6 +171,10 @@ def _run_with_timeout(cmd, cwd, stdin_path, timeout, grace=OUTPUT_GRACE_SEC):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            # Solvers may print non-UTF-8 bytes (locale-dependent messages,
+            # binary garbage on a crash); that must not turn the run into a
+            # UnicodeDecodeError.
+            errors="replace",
             start_new_session=True,
         )
     finally:
