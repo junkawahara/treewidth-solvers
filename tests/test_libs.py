@@ -569,6 +569,33 @@ def test_parse_td_reports_malformed_lines_as_value_error():
     assert problems == []
 
 
+def test_build_step_timeout_kills_the_whole_process_tree(tmp_path):
+    """A timed-out step must take its children with it, and the log must
+    hold everything the step printed."""
+    import lib.solver_registry as reg
+
+    orig = reg.SOLVERS_DIR
+    reg.SOLVERS_DIR = tmp_path
+    tag = f"27.1828{os.getpid() % 1000}"
+    try:
+        (tmp_path / "fake").mkdir()
+        solver = {"name": "fake", "build_timeout": 1,
+                  "build_steps": ["echo step-one-ran", f"echo slow; sleep {tag}"]}
+        assert not reg.build_solver(solver)
+        assert _sleepers_alive(tag) == []
+        assert not (tmp_path / "fake" / reg.BUILD_MARKER).exists()
+        log = (tmp_path / "fake" / reg.BUILD_LOG).read_text()
+        assert "$ echo step-one-ran\nstep-one-ran\n" in log and "slow\n" in log
+        solver = {"name": "fake", "build_steps": ["echo fine", "echo bad >&2; exit 2"]}
+        assert not reg.build_solver(solver)
+        assert "bad" in (tmp_path / "fake" / reg.BUILD_LOG).read_text()
+        solver = {"name": "fake", "build_steps": ["echo fine"]}
+        assert reg.build_solver(solver)
+        assert (tmp_path / "fake" / reg.BUILD_MARKER).exists()
+    finally:
+        reg.SOLVERS_DIR = orig
+
+
 def test_decompress_is_atomic_and_streams(tmp_path):
     import bz2
     import lzma

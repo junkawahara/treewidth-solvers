@@ -1,8 +1,11 @@
 """Solver registry: download, build, and manage treewidth solvers."""
 
 import json
-import subprocess
+import os
 import shutil
+import signal
+import subprocess
+import threading
 from pathlib import Path
 
 from lib.clone_check import adopt_or_reject_existing
@@ -105,49 +108,94 @@ def download_solver(solver):
         return False
 
 
+# Default wall-clock limit for one build step. The old 300 s was routinely
+# exceeded by htd's cmake build, tdlib-p17 and Julia's Pkg.instantiate()
+# (which precompiles). A solver may override it with "build_timeout".
+DEFAULT_BUILD_TIMEOUT = 1800
+# Build output (stdout+stderr of every step) is appended here in the solver
+# directory, so a long build can be watched with tail -f instead of looking
+# hung, and the full log survives for diagnosis when only a tail is printed.
+BUILD_LOG = ".tw_build.log"
+
+
+def _run_build_step(step, dest, log, timeout):
+    """Run one shell build step; return (ok, tail_lines, timed_out).
+
+    The step runs in its own process group so that on timeout the whole
+    tree is killed: with shell=True alone only the sh would die and a
+    "cd build && cmake .. && make -j" would leave make running.
+    """
+    proc = subprocess.Popen(
+        step,
+        shell=True,
+        cwd=str(dest),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        errors="replace",
+        start_new_session=True,
+    )
+    tail = []
+    timed_out = False
+
+    def pump():
+        for line in proc.stdout:
+            log.write(line)
+            log.flush()
+            tail.append(line.rstrip("\n"))
+            if len(tail) > 40:
+                del tail[0]
+
+    reader = threading.Thread(target=pump, daemon=True)
+    reader.start()
+    try:
+        proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        for sig in (signal.SIGTERM, signal.SIGKILL):
+            try:
+                os.killpg(proc.pid, sig)
+            except (ProcessLookupError, OSError):
+                break
+            try:
+                proc.wait(timeout=5)
+                break
+            except subprocess.TimeoutExpired:
+                continue
+    reader.join(timeout=5)
+    return proc.returncode == 0 and not timed_out, tail, timed_out
+
+
 def build_solver(solver):
     name = solver["name"]
     dest = solver_dir(name)
     if not dest.exists():
         print(f"  [{name}] Not downloaded yet")
         return False
-    print(f"  [{name}] Building ...")
+    timeout = solver.get("build_timeout", DEFAULT_BUILD_TIMEOUT)
+    log_path = dest / BUILD_LOG
+    print(f"  [{name}] Building ... (output: {log_path})")
     # Drop any marker from a previous successful build so a now-failing build
     # is not still reported as installed.
     (dest / BUILD_MARKER).unlink(missing_ok=True)
-    for step in solver.get("build_steps", []):
-        print(f"    $ {step}")
-        try:
-            subprocess.run(
-                step,
-                shell=True,
-                cwd=str(dest),
-                check=True,
-                capture_output=True,
-                text=True,
-                timeout=300,
-            )
-        except subprocess.CalledProcessError as e:
-            stderr_lines = (e.stderr or "").strip().splitlines()
-            stdout_lines = (e.stdout or "").strip().splitlines()
-            print(f"    Build step failed (exit code {e.returncode}):")
-            if stderr_lines:
-                tail = stderr_lines[-30:]
-                if len(stderr_lines) > 30:
-                    print(f"    ... ({len(stderr_lines) - 30} lines omitted)")
+    with open(log_path, "w") as log:
+        for step in solver.get("build_steps", []):
+            print(f"    $ {step}")
+            log.write(f"$ {step}\n")
+            log.flush()
+            ok, tail, timed_out = _run_build_step(step, dest, log, timeout)
+            if ok:
+                continue
+            if timed_out:
+                print(f"    Build step timed out after {timeout}s")
+            else:
+                print(f"    Build step failed")
+            if tail:
+                print(f"    Last {len(tail)} line(s) of output (full log: {log_path}):")
                 for line in tail:
-                    print(f"    [stderr] {line}")
-            if stdout_lines:
-                tail = stdout_lines[-15:]
-                if len(stdout_lines) > 15:
-                    print(f"    ... ({len(stdout_lines) - 15} lines omitted)")
-                for line in tail:
-                    print(f"    [stdout] {line}")
-            if not stderr_lines and not stdout_lines:
+                    print(f"    | {line}")
+            else:
                 print(f"    (no output)")
-            return False
-        except subprocess.TimeoutExpired:
-            print(f"    Build step timed out")
             return False
     (dest / BUILD_MARKER).write_text("ok\n")
     print(f"  [{name}] Build successful")
