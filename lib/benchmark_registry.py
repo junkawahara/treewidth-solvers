@@ -43,31 +43,43 @@ def is_installed(name):
     return (dest / DOWNLOAD_MARKER).exists() or is_complete_clone(dest)
 
 
+_OPENERS = {".xz": lzma.open, ".bz2": bz2.open}
+
+
+def _decompress_one(src, gr_path):
+    """Decompress src to gr_path atomically, streaming.
+
+    Writes to a temporary file beside the target and renames it into place
+    only when the whole stream has been read, so an interrupted or failed
+    decompression (Ctrl-C, disk full, corrupt archive) never leaves a
+    truncated .gr that later runs would take for a complete instance and skip
+    forever. Streams in chunks instead of reading the whole archive into
+    memory: the road graphs decompress to over 500 MB.
+    """
+    tmp = gr_path.with_name(gr_path.name + ".tw_partial")
+    opener = _OPENERS[src.suffix]
+    try:
+        with opener(src, "rb") as fin, open(tmp, "wb") as fout:
+            shutil.copyfileobj(fin, fout, 1 << 20)
+        tmp.replace(gr_path)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
+
+
 def _decompress_files(dest):
-    """Decompress all .gr.xz and .gr.bz2 files to .gr."""
+    """Decompress all .gr.xz and .gr.bz2 files under dest to .gr."""
     count = 0
-    for xz_path in dest.rglob("*.gr.xz"):
-        gr_path = xz_path.with_suffix("")
-        if gr_path.exists():
-            continue
-        try:
-            with lzma.open(xz_path, "rb") as fin:
-                with open(gr_path, "wb") as fout:
-                    fout.write(fin.read())
-            count += 1
-        except Exception as e:
-            print(f"    Warning: failed to decompress {xz_path.name}: {e}")
-    for bz2_path in dest.rglob("*.gr.bz2"):
-        gr_path = bz2_path.with_suffix("")
-        if gr_path.exists():
-            continue
-        try:
-            with bz2.open(bz2_path, "rb") as fin:
-                with open(gr_path, "wb") as fout:
-                    fout.write(fin.read())
-            count += 1
-        except Exception as e:
-            print(f"    Warning: failed to decompress {bz2_path.name}: {e}")
+    for suffix in _OPENERS:
+        for src in sorted(dest.rglob("*.gr" + suffix)):
+            gr_path = src.with_suffix("")
+            if gr_path.exists():
+                continue
+            try:
+                _decompress_one(src, gr_path)
+                count += 1
+            except Exception as e:
+                print(f"    Warning: failed to decompress {src.name}: {e}")
     if count:
         print(f"  Decompressed {count} compressed files")
     return count

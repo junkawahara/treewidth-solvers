@@ -569,6 +569,27 @@ def test_parse_td_reports_malformed_lines_as_value_error():
     assert problems == []
 
 
+def test_decompress_is_atomic_and_streams(tmp_path):
+    import bz2
+    import lzma
+
+    from lib.benchmark_registry import _decompress_files
+
+    body = b"p tw 2 1\n1 2\n"
+    (tmp_path / "a.gr.xz").write_bytes(lzma.compress(body))
+    (tmp_path / "sub").mkdir()
+    (tmp_path / "sub" / "b.gr.bz2").write_bytes(bz2.compress(body))
+    # Corrupt archive: must not leave a (partial or empty) b.gr behind.
+    (tmp_path / "bad.gr.xz").write_bytes(b"\xfd7zXZ\x00garbage")
+    assert _decompress_files(tmp_path) == 2
+    assert (tmp_path / "a.gr").read_bytes() == body
+    assert (tmp_path / "sub" / "b.gr").read_bytes() == body
+    assert not (tmp_path / "bad.gr").exists()
+    assert not list(tmp_path.rglob("*.tw_partial"))
+    # Second pass: existing .gr files are skipped, the bad one retried.
+    assert _decompress_files(tmp_path) == 0
+
+
 def _git(path, *args):
     import subprocess
 
