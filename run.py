@@ -20,6 +20,7 @@ from lib.runner import (
     install_signal_handlers,
     install_worker_signal_handlers,
     run_solver,
+    write_csv,
 )
 from lib.solver_registry import (
     get_solver,
@@ -328,6 +329,11 @@ def main():
     # Results are appended to the CSV as each job finishes, so an interrupted
     # or crashed run still leaves every completed result on disk.
     results = []
+    # Submission index of each recorded row, so a parallel run's rows (which
+    # arrive in completion order) can be rewritten in a deterministic order
+    # once the run has finished.
+    order = []
+    position = {id(item): i for i, item in enumerate(work)}
     interrupted = False
     with ResultWriter(output_path) as writer:
         print(f"Writing results to: {output_path}\n")
@@ -336,6 +342,7 @@ def main():
             solver_name, inst, _, bench_name, _, _, _, _ = item
             inst_name = Path(inst).stem
             results.append(r)
+            order.append(position[id(item)])
             writer.write(r)
             tw = r["treewidth"] if r["treewidth"] is not None else "-"
             t = r["time_sec"] if r["time_sec"] is not None else "-"
@@ -385,6 +392,12 @@ def main():
             f"{output_path}"
         )
     else:
+        if args.jobs > 1 and order != sorted(order):
+            # Completed rows were appended as they finished so an interrupted
+            # run keeps them; now that everything is in, rewrite the file in
+            # submission order so two runs of the same job list diff cleanly.
+            write_csv([r for _, r in sorted(zip(order, results), key=lambda x: x[0])],
+                      output_path)
         print(f"\nResults written to: {output_path}")
 
     print(summarize(results))
