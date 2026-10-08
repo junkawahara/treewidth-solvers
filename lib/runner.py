@@ -148,7 +148,7 @@ def _run_with_timeout(cmd, cwd, stdin_path, timeout, grace=OUTPUT_GRACE_SEC):
     when the group had to be SIGKILLed because it did not exit within grace
     seconds of the SIGTERM; any output collected then may be truncated.
 
-    The child is started as a session/group leader (os.setsid) so that on
+    The child is started as a session/group leader (start_new_session) so on
     timeout the entire group -- including grandchildren such as the JVM that
     solver wrapper scripts spawn -- is terminated with SIGTERM then SIGKILL,
     rather than leaving orphaned processes competing for CPU and memory. A
@@ -171,7 +171,7 @@ def _run_with_timeout(cmd, cwd, stdin_path, timeout, grace=OUTPUT_GRACE_SEC):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            preexec_fn=os.setsid,
+            start_new_session=True,
         )
     finally:
         if fin is not None:
