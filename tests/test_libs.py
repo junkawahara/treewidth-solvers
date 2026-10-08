@@ -235,6 +235,40 @@ def test_write_csv_matches_incremental_writer(tmp_path):
     assert not (tmp_path / "none.csv").exists()
 
 
+def test_resolve_names_dedupes_and_separates_unknown_from_uninstalled():
+    import run as run_mod
+
+    known = {"a", "b", "c"}
+    installed = {"a": True, "b": False, "c": True}
+    resolved, unknown = run_mod._resolve(
+        ["a", "typo", "a", "b", "c"], "solver", known, installed.__getitem__,
+        lambda: ["a", "c"],
+    )
+    assert resolved == ["a", "c"]  # duplicate dropped, b not installed
+    assert unknown == ["typo"]
+    resolved, unknown = run_mod._resolve(
+        ["all", "typo"], "solver", known, installed.__getitem__, lambda: ["a", "c"]
+    )
+    assert resolved == ["a", "c"] and unknown == []
+
+
+def test_solver_is_installed_requires_config_entry(tmp_path):
+    import lib.solver_registry as reg
+
+    orig = reg.SOLVERS_DIR
+    reg.SOLVERS_DIR = tmp_path
+    try:
+        (tmp_path / "stray").mkdir()
+        (tmp_path / "stray" / reg.BUILD_MARKER).write_text("ok\n")
+        assert not reg.is_installed("stray")
+        (tmp_path / "flowcutter-17").mkdir()
+        assert not reg.is_installed("flowcutter-17")
+        (tmp_path / "flowcutter-17" / reg.BUILD_MARKER).write_text("ok\n")
+        assert reg.is_installed("flowcutter-17")
+    finally:
+        reg.SOLVERS_DIR = orig
+
+
 def test_summary_counts_each_status_separately():
     import run as run_mod
 

@@ -12,6 +12,7 @@ from pathlib import Path
 from lib.benchmark_registry import (
     list_instances,
     list_installed as list_installed_benchmarks,
+    load_benchmarks,
 )
 from lib.format_converter import get_graph_info
 from lib.runner import (
@@ -24,34 +25,44 @@ from lib.solver_registry import (
     get_solver,
     is_installed,
     list_installed as list_installed_solvers,
+    load_solvers,
 )
 
 
-def resolve_solvers(names):
-    """Resolve solver names, expanding 'all' and filtering to installed."""
+def _resolve(names, kind, known, installed, list_installed_fn):
+    """Expand 'all', drop duplicates, and separate unknown names from
+    known-but-not-installed ones.
+
+    A typo used to print the same "not installed" warning as a solver whose
+    build failed, which hid the typo; and a name given twice ran twice.
+    Returns (resolved, unknown).
+    """
     if "all" in names:
-        return list_installed_solvers()
-    available = []
-    for name in names:
-        if not is_installed(name):
-            print(f"Warning: solver '{name}' is not installed, skipping")
-            continue
-        available.append(name)
-    return available
+        return list_installed_fn(), []
+    resolved, unknown = [], []
+    for name in dict.fromkeys(names):  # order-preserving dedupe
+        if name not in known:
+            unknown.append(name)
+        elif not installed(name):
+            print(f"Warning: {kind} '{name}' is not installed, skipping")
+        else:
+            resolved.append(name)
+    return resolved, unknown
+
+
+def resolve_solvers(names):
+    """Resolve solver names; returns (installed solvers, unknown names)."""
+    known = {s["name"] for s in load_solvers()}
+    return _resolve(names, "solver", known, is_installed, list_installed_solvers)
 
 
 def resolve_benchmarks(names):
-    """Resolve benchmark names, expanding 'all' and filtering to installed."""
-    if "all" in names:
-        return list_installed_benchmarks()
+    """Resolve benchmark names; returns (downloaded sets, unknown names)."""
     from lib.benchmark_registry import is_installed as bench_installed
-    available = []
-    for name in names:
-        if not bench_installed(name):
-            print(f"Warning: benchmark '{name}' is not downloaded, skipping")
-            continue
-        available.append(name)
-    return available
+    known = {b["name"] for b in load_benchmarks()}
+    return _resolve(
+        names, "benchmark", known, bench_installed, list_installed_benchmarks
+    )
 
 
 def _run_one(args):
@@ -180,7 +191,8 @@ def main():
         help="Output CSV file path (default: results/YYYY-MM-DD_HHMMSS.csv)",
     )
     parser.add_argument(
-        "--jobs", "-j", type=int, default=1, help="Number of parallel jobs (default: 1)"
+        "--jobs", "-j", type=int, default=1,
+        help="Number of parallel jobs (default: 1)",
     )
     parser.add_argument(
         "--heuristic",
@@ -225,8 +237,17 @@ def main():
         print("\nError: --solver and --benchmark are required")
         sys.exit(1)
 
-    solvers = resolve_solvers(args.solver)
-    benchmarks = resolve_benchmarks(args.benchmark)
+    solvers, unknown_solvers = resolve_solvers(args.solver)
+    benchmarks, unknown_benchmarks = resolve_benchmarks(args.benchmark)
+
+    # An unknown name is almost certainly a typo; stop rather than silently
+    # run the remaining names (see setup.py --list for the valid ones).
+    for name in unknown_solvers:
+        print(f"Error: unknown solver '{name}' (see: python3 setup.py --list)")
+    for name in unknown_benchmarks:
+        print(f"Error: unknown benchmark '{name}' (see: python3 setup.py --list)")
+    if unknown_solvers or unknown_benchmarks:
+        sys.exit(2)
 
     if args.heuristic:
         for name in solvers:

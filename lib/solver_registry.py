@@ -37,9 +37,13 @@ def solver_dir(name):
 
 
 def is_installed(name):
-    # A solver counts as installed only if its build finished successfully.
-    # Cloning alone creates the directory but leaves no marker, so a solver
-    # whose build failed is no longer mistaken for a runnable one.
+    # A solver counts as installed only if it is in the config and its build
+    # finished successfully. Cloning alone creates the directory but leaves
+    # no marker, so a solver whose build failed is no longer mistaken for a
+    # runnable one; and a stray directory under solvers/ that matches no
+    # config entry is not a solver.
+    if not any(s["name"] == name for s in load_solvers()):
+        return False
     return (solver_dir(name) / BUILD_MARKER).exists()
 
 
