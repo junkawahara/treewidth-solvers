@@ -56,6 +56,20 @@ def main():
         parser.print_help()
         sys.exit(1)
 
+    # Combinations that would silently ignore one of the flags are errors:
+    # "--all --solver X" used to set up everything and drop X's meaning,
+    # and "--solvers-only --benchmarks-only" contradicts itself.
+    if args.solvers_only and args.benchmarks_only:
+        parser.error("--solvers-only and --benchmarks-only are mutually exclusive")
+    if args.all and (args.solver or args.benchmark or args.solvers_only
+                     or args.benchmarks_only):
+        parser.error("--all cannot be combined with --solver, --benchmark, "
+                     "--solvers-only or --benchmarks-only")
+    if args.solvers_only and args.solver:
+        parser.error("--solvers-only sets up every solver; drop --solver or --solvers-only")
+    if args.benchmarks_only and args.benchmark:
+        parser.error("--benchmarks-only downloads every set; drop --benchmark or --benchmarks-only")
+
     solver_results = {}
     bench_results = {}
     unknown = []
