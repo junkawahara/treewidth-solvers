@@ -33,6 +33,24 @@ def _gr(name):
     return os.path.join(TESTS_DIR, name)
 
 
+def _assert_raises(exc_type, fn, *args, **kwargs):
+    """pytest.raises substitute that also works under the plain runner.
+
+    Unlike a bare try/except it fails on the wrong exception type (an
+    IndexError escaping a parser that promises ValueError) as well as on no
+    exception at all.
+    """
+    try:
+        fn(*args, **kwargs)
+    except exc_type:
+        return
+    except Exception as e:  # noqa: BLE001
+        raise AssertionError(
+            f"expected {exc_type.__name__}, got {type(e).__name__}: {e}"
+        )
+    raise AssertionError(f"expected {exc_type.__name__}, nothing was raised")
+
+
 def test_read_pace_gr_counts():
     assert get_graph_info(_gr("k4.gr")) == {"vertices": 4, "edges": 6}
     assert get_graph_info(_gr("cycle5.gr")) == {"vertices": 5, "edges": 5}
@@ -126,6 +144,22 @@ def test_parse_td_output_formats():
     assert parse_td_output("c width 3")["treewidth"] == 3
     assert parse_td_output("Treewidth= 5")["treewidth"] == 5
     assert parse_td_output("garbage") is None
+    # tamaki-2016: the width is the first number, never the time field.
+    assert parse_td_output("c width = 17, time = 0.215000")["treewidth"] == 17
+    assert parse_td_output("c width = 9, time = 1")["treewidth"] == 9
+    # A bare integer line is not a result (JVM warnings, progress output).
+    assert parse_td_output("c status 4 1791\n7\n") is None
+    assert parse_td_output("c widths are 5") is None
+
+
+def test_parse_td_output_prefers_header_over_width_lines():
+    # tamaki-2016 prints "c width = ..." before the "s td" header; the header
+    # is authoritative even when a width line comes first, or disagrees.
+    out = "c width = 3, time = 0.03\ns td 1 4 4\nb 1 1 2 3 4\n"
+    assert parse_td_output(out) == {"treewidth": 3, "n_bags": 1, "n_vertices": 4}
+    out = "c width 9\ns td 2 3 5\nb 1 1 2 3\nb 2 3 4 5\n1 2\n"
+    assert parse_td_output(out)["treewidth"] == 2
+    _assert_raises(ValueError, parse_td_output, "s td 3 2\n")
 
 
 def test_parse_quickbb_stat_distinguishes_proven_from_timed_out():

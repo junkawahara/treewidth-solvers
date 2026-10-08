@@ -5,6 +5,7 @@ Supported formats:
   - quickbb_cnf: QuickBB CNF-like format
 """
 
+import re
 from pathlib import Path
 
 
@@ -124,15 +125,29 @@ def parse_quickbb_stat(text):
     return parsed
 
 
+_WIDTH_LINE = re.compile(r"^(?:c\s+width\s*=?|Treewidth\s*=)\s*(\d+)\b")
+
+
 def parse_td_output(text):
     """Parse tree decomposition output (.td format) and extract treewidth.
 
+    The "s td <bags> <width+1> <n>" header is authoritative and wins wherever
+    it appears in the output. Only if there is none does a width-only line
+    count: "c width <w>" (twalgor-rtw, the Julia wrapper), "c width = <w>,
+    time = <t>" (tamaki-2016) or "Treewidth= <w>" (quickbb). The width is
+    taken from the first number after the keyword, never from a later field
+    such as the time.
+
     Returns dict with 'treewidth', 'n_bags', 'n_vertices' or None on failure.
+    Raises ValueError on a malformed "s td" header.
     """
+    width_only = None
     for line in text.strip().split("\n"):
         line = line.strip()
         if line.startswith("s td"):
             parts = line.split()
+            if len(parts) < 5:
+                raise ValueError(f"malformed header: {line!r}")
             n_bags = int(parts[2])
             width_plus_one = int(parts[3])
             n_vertices = int(parts[4])
@@ -141,14 +156,8 @@ def parse_td_output(text):
                 "n_bags": n_bags,
                 "n_vertices": n_vertices,
             }
-        # "c width <w>" (twalgor-rtw) or "c width = <w>" (tamaki-2016)
-        if line.startswith("c width"):
-            nums = [x for x in line.split() if x.isdigit()]
-            if nums:
-                return {"treewidth": int(nums[0])}
-        # "Treewidth= <w>" (quickbb)
-        if line.startswith("Treewidth="):
-            nums = [x for x in line.split() if x.isdigit()]
-            if nums:
-                return {"treewidth": int(nums[0])}
-    return None
+        if width_only is None:
+            m = _WIDTH_LINE.match(line)
+            if m:
+                width_only = {"treewidth": int(m.group(1))}
+    return width_only
