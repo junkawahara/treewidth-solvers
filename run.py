@@ -98,6 +98,22 @@ def _error_result(item, exc):
     }
 
 
+def summarize(results):
+    """One-line status breakdown: ok, timeout, invalid, parse_error, error.
+
+    Each status is counted separately so that, for example, the number of
+    decompositions --validate rejected is visible instead of being folded
+    into a generic error count. "error: <reason>" rows are grouped as error.
+    """
+    counts = {"ok": 0, "timeout": 0, "invalid": 0, "parse_error": 0, "error": 0}
+    for r in results:
+        st = r["status"]
+        key = "error" if st.startswith("error") else st
+        counts[key] = counts.get(key, 0) + 1
+    parts = [f"{n} {name}" for name, n in counts.items() if n or name in ("ok", "timeout")]
+    return "Summary: " + ", ".join(parts)
+
+
 def _print_debug(result):
     """Print diagnostic info for failed solver runs."""
     if result["status"] == "ok":
@@ -336,11 +352,7 @@ def main():
     else:
         print(f"\nResults written to: {output_path}")
 
-    # Summary
-    ok_count = sum(1 for r in results if r["status"] == "ok")
-    timeout_count = sum(1 for r in results if r["status"] == "timeout")
-    error_count = len(results) - ok_count - timeout_count
-    print(f"Summary: {ok_count} ok, {timeout_count} timeout, {error_count} error")
+    print(summarize(results))
     if interrupted:
         sys.exit(130)
 

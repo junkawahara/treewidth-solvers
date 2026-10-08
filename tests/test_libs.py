@@ -224,6 +224,18 @@ def test_write_csv_matches_incremental_writer(tmp_path):
     assert not (tmp_path / "none.csv").exists()
 
 
+def test_summary_counts_each_status_separately():
+    import run as run_mod
+
+    rows = [_row("a"), _row("b", status="timeout"), _row("c", status="invalid"),
+            _row("d", status="parse_error"), _row("e", status="error: exit 1"),
+            _row("f", status="error: boom"), _row("g", status="invalid")]
+    assert run_mod.summarize(rows) == (
+        "Summary: 1 ok, 1 timeout, 2 invalid, 1 parse_error, 2 error"
+    )
+    assert run_mod.summarize([_row("a")]) == "Summary: 1 ok, 0 timeout"
+
+
 def _sleepers_alive(tag):
     import subprocess
 
