@@ -134,8 +134,19 @@ def _sample_peak_rss(pgid, stop_event, holder):
     holder[0] = peak
 
 
-def _run_with_timeout(cmd, cwd, stdin_path, timeout):
-    """Run cmd in its own process group; return (stdout, stderr, timed_out, rc, peak_mb).
+# Seconds a timed-out solver gets after SIGTERM to flush its output before the
+# group is SIGKILLed. Signal-protocol heuristics print their best decomposition
+# on SIGTERM, and a road-graph decomposition with hundreds of thousands of bags
+# takes well over the old 5 s to write through a pipe.
+OUTPUT_GRACE_SEC = 60
+
+
+def _run_with_timeout(cmd, cwd, stdin_path, timeout, grace=OUTPUT_GRACE_SEC):
+    """Run cmd in its own process group.
+
+    Returns (stdout, stderr, timed_out, killed, rc, peak_mb). killed is True
+    when the group had to be SIGKILLed because it did not exit within grace
+    seconds of the SIGTERM; any output collected then may be truncated.
 
     The child is started as a session/group leader (os.setsid) so that on
     timeout the entire group -- including grandchildren such as the JVM that
@@ -175,6 +186,7 @@ def _run_with_timeout(cmd, cwd, stdin_path, timeout):
     sampler.start()
 
     timed_out = False
+    killed = False
     try:
         _current_proc = proc
         # An abort signal that arrived between Popen and the assignment above
@@ -187,8 +199,9 @@ def _run_with_timeout(cmd, cwd, stdin_path, timeout):
             timed_out = True
             _kill_group(proc, signal.SIGTERM)
             try:
-                stdout, stderr = proc.communicate(timeout=5)
+                stdout, stderr = proc.communicate(timeout=grace)
             except subprocess.TimeoutExpired:
+                killed = True
                 _kill_group(proc, signal.SIGKILL)
                 try:
                     stdout, stderr = proc.communicate(timeout=5)
@@ -204,7 +217,7 @@ def _run_with_timeout(cmd, cwd, stdin_path, timeout):
         sampler.join(timeout=1)
 
     peak_mb = round(holder[0] / 1024.0, 1) if holder[0] else None
-    return stdout, stderr, timed_out, proc.returncode, peak_mb
+    return stdout, stderr, timed_out, killed, proc.returncode, peak_mb
 
 
 def _read_file_output(work_dir, iname, td_path, stdout):
@@ -348,20 +361,29 @@ def run_solver(
             # solver with a format conversion still receives the converted data.
             stdin_path = None if mode == "file" else converted_input
             start_time = time.monotonic()
-            stdout, stderr_text, timed_out, returncode, peak_mb = _run_with_timeout(
-                cmd, str(sdir), stdin_path, timeout
+            # Non-signal solvers have nothing to flush on SIGTERM, so they get
+            # only a short grace before being killed.
+            grace = OUTPUT_GRACE_SEC if mode == "stdin_stdout_signal" else 5
+            stdout, stderr_text, timed_out, killed, returncode, peak_mb = (
+                _run_with_timeout(cmd, str(sdir), stdin_path, timeout, grace)
             )
             elapsed = time.monotonic() - start_time
 
             # Signal-protocol heuristics emit their best decomposition on
             # SIGTERM, so a timeout there is expected and its flushed output is
-            # a valid result; for any other mode a timeout means "no answer".
-            signal_timeout = timed_out and mode == "stdin_stdout_signal"
+            # a valid result -- unless the group had to be SIGKILLed before it
+            # finished writing, in which case the output is cut off somewhere
+            # after the "s td" header and must not be taken as an answer. For
+            # any other mode a timeout means "no answer".
+            signal_timeout = (
+                timed_out and not killed and mode == "stdin_stdout_signal"
+            )
             result["time_sec"] = timeout if timed_out else round(elapsed, 3)
             result["memory_mb"] = peak_mb
 
             if _debug is not None:
                 _debug["returncode"] = returncode
+                _debug["killed"] = killed
                 _debug["stderr"] = stderr_text
                 _debug["stdout_raw"] = stdout[:2000]
 

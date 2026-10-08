@@ -248,6 +248,51 @@ def test_interrupt_during_solver_kills_whole_process_group(tmp_path):
     assert runner._current_proc is None
 
 
+def test_run_with_timeout_reports_kill_after_grace(tmp_path):
+    """A solver that ignores SIGTERM is SIGKILLed after the grace period and
+    the call reports killed=True; one that exits on SIGTERM is not killed."""
+    import time as _time
+
+    t0 = _time.monotonic()
+    out, _err, timed_out, killed, rc, _mb = runner._run_with_timeout(
+        "trap '' TERM; echo s td 1 1 1; sleep 30", str(tmp_path), None,
+        timeout=0.3, grace=0.5,
+    )
+    assert timed_out and killed and rc != 0
+    assert _time.monotonic() - t0 < 10
+    out, _err, timed_out, killed, _rc, _mb = runner._run_with_timeout(
+        "echo s td 1 1 1; sleep 30", str(tmp_path), None, timeout=0.3, grace=5,
+    )
+    assert timed_out and not killed
+    assert "s td 1 1 1" in out
+
+
+def test_run_solver_rejects_output_truncated_by_sigkill(tmp_path):
+    """Signal-protocol mode: output cut off by SIGKILL is a timeout, not ok."""
+    fake = {
+        "name": "fake", "type": "heuristic", "language": "c",
+        "run_command": "trap '' TERM; echo 's td 1 2 4'; sleep 30",
+        "run_mode": "stdin_stdout_signal", "input_format": "pace_gr",
+        "output_format": "pace_td",
+    }
+    orig_get, orig_dir, orig_grace = (
+        runner.get_solver, runner.solver_dir, runner.OUTPUT_GRACE_SEC
+    )
+    runner.get_solver = lambda name: fake
+    runner.solver_dir = lambda name: tmp_path
+    runner.OUTPUT_GRACE_SEC = 0.5
+    try:
+        r = runner.run_solver("fake", _gr("path4.gr"), timeout=1)
+        assert r["status"] == "timeout" and r["treewidth"] is None
+        # Same solver, but it honours SIGTERM: its flushed output counts.
+        fake["run_command"] = "trap 'echo s td 1 2 4; echo b 1 1 2; exit 0' TERM; sleep 30 & wait"
+        r = runner.run_solver("fake", _gr("path4.gr"), timeout=1)
+        assert r["status"] == "ok" and r["treewidth"] == 1
+    finally:
+        runner.get_solver, runner.solver_dir = orig_get, orig_dir
+        runner.OUTPUT_GRACE_SEC = orig_grace
+
+
 def test_abort_request_prevents_launching_next_solver(tmp_path):
     """The worker handler sets a flag when idle; the next launch must abort."""
     assert runner._current_proc is None
