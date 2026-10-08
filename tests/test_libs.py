@@ -269,6 +269,17 @@ def test_solver_is_installed_requires_config_entry(tmp_path):
         reg.SOLVERS_DIR = orig
 
 
+def test_cli_rejects_out_of_range_numbers():
+    import argparse
+    import run as run_mod
+
+    assert run_mod._positive_int("3") == 3
+    assert run_mod._non_negative_int("0") == 0
+    for fn, bad in ((run_mod._positive_int, "0"), (run_mod._positive_int, "-2"),
+                    (run_mod._non_negative_int, "-1")):
+        _assert_raises(argparse.ArgumentTypeError, fn, bad)
+
+
 def test_summary_counts_each_status_separately():
     import run as run_mod
 

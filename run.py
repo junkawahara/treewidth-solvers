@@ -65,6 +65,20 @@ def resolve_benchmarks(names):
     )
 
 
+def _positive_int(text):
+    value = int(text)
+    if value < 1:
+        raise argparse.ArgumentTypeError(f"must be a positive integer, got {text}")
+    return value
+
+
+def _non_negative_int(text):
+    value = int(text)
+    if value < 0:
+        raise argparse.ArgumentTypeError(f"must be >= 0, got {text}")
+    return value
+
+
 def _run_one(args):
     """Wrapper for process pool."""
     (solver_name, instance_path, timeout, bench_name, use_heuristic, debug,
@@ -180,7 +194,7 @@ def main():
     )
     parser.add_argument(
         "--timeout",
-        type=int,
+        type=_positive_int,
         default=300,
         help="Timeout per instance in seconds (default: 300)",
     )
@@ -191,7 +205,7 @@ def main():
         help="Output CSV file path (default: results/YYYY-MM-DD_HHMMSS.csv)",
     )
     parser.add_argument(
-        "--jobs", "-j", type=int, default=1,
+        "--jobs", "-j", type=_positive_int, default=1,
         help="Number of parallel jobs (default: 1)",
     )
     parser.add_argument(
@@ -201,7 +215,7 @@ def main():
     )
     parser.add_argument(
         "--max-instances",
-        type=int,
+        type=_non_negative_int,
         default=None,
         help="Max instances per benchmark set (for quick testing)",
     )
