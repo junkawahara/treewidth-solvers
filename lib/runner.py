@@ -94,10 +94,37 @@ def install_worker_signal_handlers():
     install_signal_handlers(worker=True)
 
 
+def _proc_mem_kb(pid):
+    """Memory (kB) of one process: PSS if the kernel offers it, else RSS.
+
+    PSS (proportional set size) splits pages shared between processes among
+    them, so summing it over a process group counts a forked JVM's shared
+    pages once. RSS counts them in every process, which overstated the group
+    total; it remains the fallback on kernels without smaps_rollup.
+    """
+    try:
+        with open(f"/proc/{pid}/smaps_rollup") as f:
+            for line in f:
+                if line.startswith("Pss:"):
+                    return int(line.split()[1])
+    except (OSError, ValueError, IndexError):
+        pass
+    try:
+        with open(f"/proc/{pid}/status") as f:
+            for line in f:
+                if line.startswith("VmRSS:"):
+                    return int(line.split()[1])
+    except (OSError, ValueError, IndexError):
+        pass
+    return 0
+
+
 def _group_rss_kb(pgid):
-    """Sum the resident set size (kB) of every process in process group pgid.
+    """Sum the memory (kB) of every process in process group pgid.
 
     Linux-only (reads /proc); returns 0 on any other platform or on error.
+    The sum covers the whole group, i.e. the solver plus the shell wrapper
+    and any helper it spawned, which is what the run actually costs.
     """
     total = 0
     try:
@@ -114,18 +141,18 @@ def _group_rss_kb(pgid):
             after = data[data.rfind(")") + 2:].split()
             if int(after[2]) != pgid:
                 continue
-            with open(f"/proc/{entry}/status") as f:
-                for line in f:
-                    if line.startswith("VmRSS:"):
-                        total += int(line.split()[1])
-                        break
         except (OSError, ValueError, IndexError):
             continue
+        total += _proc_mem_kb(entry)
     return total
 
 
 def _sample_peak_rss(pgid, stop_event, holder):
-    """Poll the process group's RSS until stopped, storing the peak (kB)."""
+    """Poll the process group's memory until stopped, storing the peak (kB).
+
+    Sampled every 100 ms, so a spike shorter than that can be missed; the
+    value is a lower bound on the true peak.
+    """
     peak = 0
     while not stop_event.is_set():
         peak = max(peak, _group_rss_kb(pgid))

@@ -329,6 +329,34 @@ def test_interrupt_during_solver_kills_whole_process_group(tmp_path):
     assert runner._current_proc is None
 
 
+def test_group_memory_uses_pss_and_counts_the_whole_group(tmp_path):
+    """Two processes sharing one big file mapping count it about once."""
+    import subprocess
+    import time as _time
+
+    if not os.path.exists("/proc/self/smaps_rollup"):
+        return  # PSS unavailable; RSS fallback is exercised implicitly
+    # A child that maps and touches ~64 MB, then forks: parent and child share
+    # the pages, so PSS over the group is ~64 MB while RSS would be ~128 MB.
+    code = (
+        "import os, time, mmap\n"
+        "m = mmap.mmap(-1, 64 << 20)\n"
+        "m.write(b'x' * (64 << 20))\n"
+        "pid = os.fork()\n"
+        "time.sleep(3)\n"
+    )
+    p = subprocess.Popen([sys.executable, "-c", code], start_new_session=True)
+    try:
+        _time.sleep(1.0)
+        kb = runner._group_rss_kb(p.pid)
+        own = runner._proc_mem_kb(p.pid)
+    finally:
+        runner._kill_group(p, 9)
+        p.wait()
+    assert 60_000 < kb < 110_000, kb      # shared pages not double counted
+    assert own < kb                       # ...but the child is included
+
+
 def test_run_with_timeout_tolerates_non_utf8_output(tmp_path):
     out, err, timed_out, killed, rc, _mb = runner._run_with_timeout(
         "printf 's td 1 2 2\\n\\377\\376 junk\\n'; printf '\\377' >&2",
