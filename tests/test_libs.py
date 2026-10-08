@@ -81,20 +81,10 @@ def test_get_graph_info_streams_without_storing_edges(tmp_path):
 def test_get_graph_info_rejects_malformed_files(tmp_path):
     bad = tmp_path / "bad.gr"
     bad.write_text("p tw 4 6\n1 2\n2 3\n")
-    try:
-        get_graph_info(str(bad))
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("expected ValueError on edge-count mismatch")
+    _assert_raises(ValueError, get_graph_info, str(bad))
     nop = tmp_path / "nop.gr"
-    nop.write_text("1 2\n")
-    try:
-        get_graph_info(str(nop))
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("expected ValueError on missing p line")
+    nop.write_text("c only a comment\n")
+    _assert_raises(ValueError, get_graph_info, str(nop))
 
 
 def test_run_solver_uses_precomputed_graph_info(tmp_path):
@@ -111,12 +101,35 @@ def test_run_solver_uses_precomputed_graph_info(tmp_path):
 def test_read_pace_gr_rejects_edge_count_mismatch(tmp_path):
     bad = tmp_path / "bad.gr"
     bad.write_text("p tw 4 6\n1 2\n2 3\n")  # declares 6 edges, lists 2
-    try:
-        read_pace_gr(str(bad))
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("expected ValueError on edge-count mismatch")
+    _assert_raises(ValueError, read_pace_gr, str(bad))
+
+
+def test_read_pace_gr_reports_malformed_lines_as_value_error(tmp_path):
+    """Every malformed input is a ValueError naming the line, not an IndexError."""
+    cases = {
+        "p tw\n": "expected 'p tw",            # p line with no counts
+        "p td 4 3\n1 2\n2 3\n3 4\n": "expected 'p tw",  # wrong keyword
+        "p tw 4 3\n1 2\np tw 4 3\n2 3\n3 4\n": "second 'p' line",
+        "1 2\np tw 2 1\n": "before the 'p' line",
+        "p tw 4 3\n1\n2 3\n3 4\n": "expected '<u> <v>'",
+        "p tw 4 3\n1 2 3\n2 3\n3 4\n": "expected '<u> <v>'",
+        "p tw 4 3\n1 x\n2 3\n3 4\n": "non-integer vertex",
+        "p tw 4 3\n1 2\n2 3\n3 5\n": "outside 1..4",
+        "p tw 4 3\n0 2\n2 3\n3 4\n": "outside 1..4",
+        "p tw x 3\n": "non-integer counts",
+    }
+    for text, msg in cases.items():
+        f = tmp_path / "bad.gr"
+        f.write_text(text)
+        try:
+            read_pace_gr(str(f))
+        except ValueError as e:
+            assert msg in str(e), (text, str(e))
+        else:
+            raise AssertionError(f"accepted malformed input {text!r}")
+    good = tmp_path / "good.gr"
+    good.write_text("c comment\n\np tw 3 2\n1 2\n\n2 3\n")
+    assert read_pace_gr(str(good)) == (3, [(1, 2), (2, 3)])
 
 
 def test_quickbb_cnf_conversion(tmp_path):

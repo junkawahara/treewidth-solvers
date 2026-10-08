@@ -16,28 +16,60 @@ def _scan_pace_gr(filepath, on_edge=None):
     otherwise, so counting a multi-hundred-megabyte road graph needs no more
     memory than one line.
 
-    Raises ValueError if the file has no problem line or if the number of edge
-    lines does not match the count declared on the "p" line -- a truncated or
-    malformed instance should be reported, not silently accepted.
+    Raises ValueError (never IndexError) on anything that is not a PACE
+    instance: no "p tw <n> <m>" line, a second p line, an edge line before
+    the p line, a line that is not exactly two integers, an endpoint outside
+    1..n, or an edge count that disagrees with the p line. A truncated or
+    malformed instance should be reported, not silently accepted, and an
+    out-of-range endpoint should be blamed on the graph rather than surfacing
+    later as a confusing validation failure of a correct decomposition.
     """
     n = 0
     m = None
     count = 0
     with open(filepath) as f:
-        for line in f:
+        for lineno, line in enumerate(f, 1):
             line = line.strip()
             if not line or line.startswith("c"):
                 continue
-            if line.startswith("p"):
-                parts = line.split()
-                n = int(parts[2])
-                m = int(parts[3])
-            else:
-                parts = line.split()
+            parts = line.split()
+            if parts[0] == "p":
+                if m is not None:
+                    raise ValueError(f"{filepath}:{lineno}: second 'p' line")
+                if len(parts) != 4 or parts[1] != "tw":
+                    raise ValueError(
+                        f"{filepath}:{lineno}: expected 'p tw <n> <m>', got {line!r}"
+                    )
+                try:
+                    n, m = int(parts[2]), int(parts[3])
+                except ValueError:
+                    raise ValueError(
+                        f"{filepath}:{lineno}: non-integer counts in {line!r}"
+                    ) from None
+                if n < 0 or m < 0:
+                    raise ValueError(f"{filepath}:{lineno}: negative count in {line!r}")
+                continue
+            if m is None:
+                raise ValueError(
+                    f"{filepath}:{lineno}: edge line before the 'p' line"
+                )
+            if len(parts) != 2:
+                raise ValueError(
+                    f"{filepath}:{lineno}: expected '<u> <v>', got {line!r}"
+                )
+            try:
                 u, v = int(parts[0]), int(parts[1])
-                count += 1
-                if on_edge is not None:
-                    on_edge(u, v)
+            except ValueError:
+                raise ValueError(
+                    f"{filepath}:{lineno}: non-integer vertex in {line!r}"
+                ) from None
+            if not (1 <= u <= n and 1 <= v <= n):
+                raise ValueError(
+                    f"{filepath}:{lineno}: edge ({u},{v}) outside 1..{n}"
+                )
+            count += 1
+            if on_edge is not None:
+                on_edge(u, v)
     if m is None:
         raise ValueError(f"{filepath}: missing 'p' problem line")
     if count != m:
