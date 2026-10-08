@@ -50,6 +50,29 @@ python run.py --solver all --benchmark all --timeout 300 --jobs 4
 python run.py --solver all --benchmark all --timeout 60 --max-instances 5
 ```
 
+## 実行オプション
+
+`run.py` のオプション:
+
+| オプション | 意味 |
+|------------|------|
+| `--solver NAME` | 実行するソルバー。複数指定可、`all` でインストール済み全部。未知の名前はエラー。 |
+| `--benchmark NAME` | ベンチマークセット。複数指定可、`all` で全部。 |
+| `--timeout SEC` | 1 実行あたりの実時間上限（既定 300）。独自の時間制限オプションを持つソルバーには、kill される前に結果を出せるよう少し短い内部制限を渡します。 |
+| `--jobs N`, `-j N` | N 個のソルバープロセスを並列実行。 |
+| `--heuristic` | heuristic コマンドを持つソルバー（tamaki-2017, tdlib-p17, jdrasil）でそれを使う。持たないソルバーは exact コマンドが走り、警告が出ます。実際に走ったモードは `mode` 列に記録されます。 |
+| `--validate` | 出力された木分解を入力グラフに対して検証（頂点被覆、辺被覆、部分木の連結性、木であること、ヘッダの整合）。失敗は `status=invalid`。 |
+| `--debug` | ok 以外の各実行についてコマンド、終了コード、stderr/stdout の末尾を表示。 |
+| `--max-instances N` | 各ベンチマークセットの先頭 N 件だけ使う。 |
+| `--output PATH` | CSV の出力先（既定 `results/YYYY-MM-DD_HHMMSS.csv`）。 |
+| `--list` | インストール済みのソルバーとベンチマークを表示。 |
+
+結果は 1 件完了するごとに CSV へ追記されるため、Ctrl-C で中断しても完了分は残り、実行中のソルバーは停止されます。並列実行が最後まで終わると投入順に並べ直されます。
+
+### インストールマーカー
+
+`setup.py` はクローン完了時にソルバー／ベンチマークのディレクトリへ `.tw_download_complete` を、全ビルドステップ成功時に `.tw_build_complete` を書きます。`run.py` はビルドマーカーがあるソルバーだけをインストール済みとみなします。ビルド出力はソルバーディレクトリの `.tw_build.log` に書かれます。再クローンせずにビルドし直すには `python setup.py --solver NAME` をもう一度実行してください（ディレクトリは保持され、ビルドステップだけが再実行されます）。クローンは `config/*.json` に記載のコミットに固定されています。固定コミットでクローンし直すにはディレクトリを削除してください。
+
 ## ソルバー一覧
 
 ### 厳密ソルバー (Exact)
@@ -95,9 +118,28 @@ python run.py --solver all --benchmark all --timeout 60 --max-instances 5
 
 ```
 solver,mode,benchmark_set,instance,vertices,edges,treewidth,time_sec,status,memory_mb
-flowcutter-17,heuristic,pace2017-instances,ex001,100,250,12,0.523,ok,
-tamaki-2017,exact,pace2017-instances,ex001,100,250,12,1.234,ok,
+flowcutter-17,heuristic,pace2017-instances,ex001,100,250,12,0.523,ok,41.2
+tamaki-2017,exact,pace2017-instances,ex001,100,250,12,1.234,ok,312.5
 ```
+
+| 列 | 意味 |
+|----|------|
+| `mode` | `exact` または `heuristic`。実際に走ったコマンド。 |
+| `treewidth` | ソルバーが報告した幅（`status` が `ok` のときのみ）。ヒューリスティックでは上界、完了した厳密ソルバーでは厳密な treewidth。 |
+| `time_sec` | ソルバープロセスの実時間（秒）。インタプリタの起動時間を含みます。Java ソルバーでは JVM 起動、TreeWidthSolver.jl では毎回の Julia パッケージの読込・コンパイル（数秒かかることがあります）が入ります。タイムアウト時は `--timeout` の値。 |
+| `status` | 下表参照。 |
+| `memory_mb` | ソルバーのプロセスグループ全体（ソルバー、ラッパーシェル、JVM）のピークメモリ。PSS（proportional set size）を 100ms 間隔でサンプリングするため、ごく短いピークは取りこぼすことがあります。Linux のみ。他では空欄。 |
+
+`status` の値:
+
+| 値 | 意味 |
+|----|------|
+| `ok` | ソルバーが木分解または幅を出力した（`--validate` 時は、かつ木分解が正しい）。 |
+| `timeout` | `--timeout` 内に答えが出なかった。quickbb が内部制限で止まり未証明の上界しか無い場合、および kill が必要になって出力が途中で切れたヒューリスティックもこれ。 |
+| `invalid` | `--validate` が出力された木分解の誤りを検出した。 |
+| `parse_error` | ソルバーは正常終了したが、出力に `s td` ヘッダも幅の行も無かった。 |
+| `error: exit N` / `error: signal N` | ソルバーが非ゼロで終了、またはシグナルで死んだ（クラッシュ、メモリ不足）。 |
+| `error: <メッセージ>` | ランナー側の失敗。例: インスタンスファイルをパースできなかった。 |
 
 ## テスト
 

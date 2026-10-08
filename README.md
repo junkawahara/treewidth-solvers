@@ -50,6 +50,29 @@ python run.py --solver all --benchmark all --timeout 300 --jobs 4
 python run.py --solver all --benchmark all --timeout 60 --max-instances 5
 ```
 
+## Runner Options
+
+`run.py` takes the following options:
+
+| Option | Meaning |
+|--------|---------|
+| `--solver NAME` | Solver to run; repeatable, or `all` for every installed solver. An unknown name is an error. |
+| `--benchmark NAME` | Benchmark set; repeatable, or `all`. |
+| `--timeout SEC` | Wall-clock limit per run (default 300). Solvers with their own time option get a slightly smaller internal limit so they can report before being killed. |
+| `--jobs N`, `-j N` | Run N solver processes in parallel. |
+| `--heuristic` | Use the heuristic command of solvers that have one (tamaki-2017, tdlib-p17, jdrasil). Solvers without one run their exact command and a warning is printed; the `mode` column records what actually ran. |
+| `--validate` | Check every emitted tree decomposition against the input graph (vertex cover, edge cover, subtree connectivity, tree shape, header consistency); failures get `status=invalid`. |
+| `--debug` | For each non-ok run print the command, exit code, and the tails of stderr and stdout. |
+| `--max-instances N` | Use only the first N instances of each benchmark set. |
+| `--output PATH` | CSV path (default `results/YYYY-MM-DD_HHMMSS.csv`). |
+| `--list` | List installed solvers and benchmark sets. |
+
+Results are appended to the CSV as each run finishes, so an interrupted run (Ctrl-C) keeps everything completed so far and stops the running solvers. A finished parallel run is rewritten in submission order.
+
+### Installation markers
+
+`setup.py` writes `.tw_download_complete` into a solver or benchmark directory once its clone has finished and `.tw_build_complete` once every build step has succeeded; `run.py` treats a solver as installed only if the build marker exists. Build output is written to `.tw_build.log` in the solver directory. To rebuild a solver without re-cloning, run `python setup.py --solver NAME` again (the directory is kept; only the build steps rerun). Clones are pinned to the commits listed in `config/*.json`; delete a directory to re-clone it at the pinned commit.
+
 ## Solvers
 
 ### Exact Solvers
@@ -95,9 +118,28 @@ Results are written as CSV files to the `results/` directory:
 
 ```
 solver,mode,benchmark_set,instance,vertices,edges,treewidth,time_sec,status,memory_mb
-flowcutter-17,heuristic,pace2017-instances,ex001,100,250,12,0.523,ok,
-tamaki-2017,exact,pace2017-instances,ex001,100,250,12,1.234,ok,
+flowcutter-17,heuristic,pace2017-instances,ex001,100,250,12,0.523,ok,41.2
+tamaki-2017,exact,pace2017-instances,ex001,100,250,12,1.234,ok,312.5
 ```
+
+| Column | Meaning |
+|--------|---------|
+| `mode` | `exact` or `heuristic`: the command that actually ran. |
+| `treewidth` | The width reported by the solver (empty unless `status` is `ok`). For a heuristic this is an upper bound; for an exact solver that finished, the exact treewidth. |
+| `time_sec` | Wall-clock seconds for the solver process, including interpreter start-up: JVM start-up for the Java solvers and, for TreeWidthSolver.jl, loading and compiling the Julia package on every run, which can take several seconds. For a timed-out run it equals `--timeout`. |
+| `status` | See below. |
+| `memory_mb` | Peak memory of the solver's whole process group (solver, wrapper shell, JVM), measured as proportional set size (PSS) sampled every 100 ms, so very short spikes may be missed. Linux only; empty elsewhere. |
+
+`status` takes one of these values:
+
+| Status | Meaning |
+|--------|---------|
+| `ok` | The solver produced a decomposition or width (and, with `--validate`, the decomposition is valid). |
+| `timeout` | No answer within `--timeout`. Also used for quickbb when it stopped at its internal limit with only an unproven upper bound, and for a heuristic whose output was cut off when it had to be killed. |
+| `invalid` | `--validate` found the emitted decomposition incorrect. |
+| `parse_error` | The solver exited normally but its output contained no recognisable `s td` header or width line. |
+| `error: exit N` / `error: signal N` | The solver exited with a non-zero code or was killed by a signal (crash, out of memory). |
+| `error: <message>` | The runner itself failed, e.g. the instance file could not be parsed. |
 
 ## Tests
 
