@@ -14,11 +14,13 @@
 
 ソルバーごとの依存:
 - **Java ソルバー** (twalgor-tw, twalgor-rtw, tamaki-2017, jdrasil): JDK 8+
-- **C/C++ ソルバー** (tamaki-2016, tdlib-p17, flowcutter-17, htd, minfill-mrs, minfillbg-mrs): GCC 4.8+
-  - **tdlib-p17** は Boost と autotools が必要です（Debian/Ubuntu: `sudo apt install libboost-graph-dev autoconf automake`）
+- **C/C++ ソルバー** (tamaki-2016, tdlib-p17, flowcutter-17, htd, minfill-mrs, minfillbg-mrs): GCC 7+（C++17 対応の g++）と `make`
+  - **tdlib-p17** は C++17（ビルド時にインライン変数を挿入します）、Boost、autotools、libtool が必要です（Debian/Ubuntu: `sudo apt install libboost-graph-dev libboost-thread-dev autoconf automake libtool`）
   - **htd** は CMake が必要です（Debian/Ubuntu: `sudo apt install cmake`）
-- **QuickBB**: GCC, autotools (autoconf, automake)
-- **TreeWidthSolver.jl**: Julia 1.6+
+- **QuickBB**: C++11 対応の g++、autotools (autoconf, automake)
+- **TreeWidthSolver.jl**: Julia 1.10+（パッケージの `Project.toml` が要求）
+
+`setup.py` はこれら（コンパイラ、`make`、`cmake`、`autoreconf`、`jar`、Boost ヘッダなど）を事前に確認し、足りないソルバーは不足しているものを表示してスキップします。
 
 ## クイックスタート
 

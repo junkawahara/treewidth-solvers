@@ -14,11 +14,13 @@ Required:
 
 Per-solver dependencies:
 - **Java solvers** (twalgor-tw, twalgor-rtw, tamaki-2017, jdrasil): JDK 8+
-- **C/C++ solvers** (tamaki-2016, tdlib-p17, flowcutter-17, htd, minfill-mrs, minfillbg-mrs): GCC 4.8+
-  - **tdlib-p17** requires Boost and autotools (`sudo apt install libboost-graph-dev autoconf automake` on Debian/Ubuntu)
+- **C/C++ solvers** (tamaki-2016, tdlib-p17, flowcutter-17, htd, minfill-mrs, minfillbg-mrs): GCC 7+ (g++ with C++17 support) and `make`
+  - **tdlib-p17** needs C++17 (the build inserts an inline variable), Boost, autotools and libtool (`sudo apt install libboost-graph-dev libboost-thread-dev autoconf automake libtool` on Debian/Ubuntu)
   - **htd** requires CMake (`sudo apt install cmake` on Debian/Ubuntu)
-- **QuickBB**: GCC, autotools (autoconf, automake)
-- **TreeWidthSolver.jl**: Julia 1.6+
+- **QuickBB**: g++ with C++11 support, autotools (autoconf, automake)
+- **TreeWidthSolver.jl**: Julia 1.10+ (required by the package's `Project.toml`)
+
+`setup.py` checks these up front (compilers, `make`, `cmake`, `autoreconf`, `jar`, Boost headers, ...) and skips a solver whose tools are missing, naming them.
 
 ## Quick Start
 
