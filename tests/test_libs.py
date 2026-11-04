@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from lib.format_converter import (  # noqa: E402
     get_graph_info,
+    max_bag_size,
     pace_gr_to_quickbb_cnf,
     parse_quickbb_stat,
     parse_td_output,
@@ -184,6 +185,46 @@ def test_parse_td_output_prefers_header_over_width_lines():
     out = "c width 9\ns td 2 3 5\nb 1 1 2 3\nb 2 3 4 5\n1 2\n"
     assert parse_td_output(out)["treewidth"] == 2
     _assert_raises(ValueError, parse_td_output, "s td 3 2\n")
+
+
+def test_max_bag_size_counts_distinct_vertices_of_the_largest_bag():
+    assert max_bag_size("s td 2 3 4\nb 1 1 2 3\nb 2 3 4\n1 2\n") == 3
+    assert max_bag_size("c b 1 2 3 4 5\ns td 1 2 2\nb 1 1 1 2\n") == 2  # dup counted once
+    assert max_bag_size("s td 1 1 1\nb 1\n") == 0  # empty bag
+    assert max_bag_size("s td 1 2 2\n") is None  # no bags at all
+    assert max_bag_size("c width 3\n") is None
+    _assert_raises(ValueError, max_bag_size, "s td 1 2 2\nb 1 1 x\n")
+
+
+def test_run_solver_rejects_header_width_that_disagrees_with_bags(tmp_path):
+    """Without --validate, a header width that disagrees with the bags is invalid."""
+    fake = {
+        "name": "fake", "type": "heuristic", "language": "c",
+        # tdlib-p17's heuristic on a tree: header width+1 = 1 over bags of 2.
+        "run_command": "printf 's td 3 1 4\\nb 1 1 2\\nb 2 2 3\\nb 3 3 4\\n1 2\\n2 3\\n'",
+        "run_mode": "stdin_stdout", "input_format": "pace_gr",
+        "output_format": "pace_td",
+    }
+    orig_get, orig_dir = runner.get_solver, runner.solver_dir
+    runner.get_solver = lambda name: fake
+    runner.solver_dir = lambda name: tmp_path
+    try:
+        r = runner.run_solver("fake", _gr("path4.gr"), timeout=5, debug=True)
+        assert r["status"] == "invalid"
+        assert r["_debug"]["validation_errors"] == [
+            "Header declares width+1=1 but the largest bag has 2 vertices"
+        ]
+        # A header that overstates the width is caught the same way.
+        fake["run_command"] = "printf 's td 1 3 4\\nb 1 1 2\\n'"
+        assert runner.run_solver("fake", _gr("path4.gr"), timeout=5)["status"] == "invalid"
+        # A consistent header passes, and width-only output is not checked.
+        fake["run_command"] = "printf 's td 3 2 4\\nb 1 1 2\\nb 2 2 3\\nb 3 3 4\\n1 2\\n2 3\\n'"
+        r = runner.run_solver("fake", _gr("path4.gr"), timeout=5)
+        assert r["status"] == "ok" and r["treewidth"] == 1
+        fake["run_command"] = "echo 'c width 1'"
+        assert runner.run_solver("fake", _gr("path4.gr"), timeout=5)["status"] == "ok"
+    finally:
+        runner.get_solver, runner.solver_dir = orig_get, orig_dir
 
 
 def test_is_full_td_requires_header_and_a_bag():

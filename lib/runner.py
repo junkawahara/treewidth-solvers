@@ -13,6 +13,7 @@ from pathlib import Path
 
 from lib.format_converter import (
     get_graph_info,
+    max_bag_size,
     pace_gr_to_quickbb_cnf,
     parse_quickbb_stat,
     parse_td_output,
@@ -487,6 +488,24 @@ def run_solver(
                     elif not stat["optimal"]:
                         result["status"] = "timeout"
                         result["treewidth"] = None
+
+                # The treewidth column comes from the "s td" header, so check
+                # it against the bags on every run, with or without --validate.
+                # This only scans the output, so it costs far less than the
+                # full validation. tdlib-p17's heuristic declares width 0 over
+                # bags of 2+ vertices when preprocessing reduces the whole
+                # graph, and without this check that would be recorded as
+                # tw=0, ok.
+                if result["status"] == "ok" and "n_bags" in td_info:
+                    largest = max_bag_size(stdout)
+                    declared = td_info["treewidth"] + 1
+                    if largest is not None and largest != declared:
+                        result["status"] = "invalid"
+                        if _debug is not None:
+                            _debug["validation_errors"] = [
+                                f"Header declares width+1={declared} but the "
+                                f"largest bag has {largest} vertices"
+                            ]
 
                 # Optionally verify that an emitted full decomposition is valid.
                 # Width-only outputs (a bare number, "c width", "Treewidth=")

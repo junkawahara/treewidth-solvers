@@ -193,3 +193,29 @@ def parse_td_output(text):
             if m:
                 width_only = {"treewidth": int(m.group(1))}
     return width_only
+
+
+def max_bag_size(text):
+    """Return the size of the largest "b" bag in .td output, or None if no bag.
+
+    A cheap companion to parse_td_output that lets the runner compare the
+    width declared in the "s td" header with the bags actually printed,
+    without reading the graph. Only one bag is held at a time. A vertex listed
+    twice in a bag counts once, as in validator.parse_td.
+
+    Raises ValueError on a bag line with a non-integer vertex.
+    """
+    largest = None
+    for lineno, raw in enumerate(text.splitlines(), 1):
+        parts = raw.split()
+        if not parts or parts[0] != "b":
+            continue
+        try:
+            size = len(set(int(x) for x in parts[2:]))
+        except ValueError:
+            raise ValueError(
+                f"line {lineno}: non-integer vertex in {raw.strip()!r}"
+            ) from None
+        if largest is None or size > largest:
+            largest = size
+    return largest
