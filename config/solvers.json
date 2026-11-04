@@ -91,7 +91,8 @@
       "grep -q 'static unsigned dummy' tdlib/src/graph_traits.hpp || sed -i 's/unsigned dummy;/static unsigned dummy;/' tdlib/src/graph_traits.hpp",
       "sed -i 's/return treedec::bagsize_t().dummy;/return treedec::bagsize_t::dummy;/' tdlib/src/graph_traits.hpp",
       "grep -q 'inline unsigned bagsize_t::dummy' tdlib/src/graph_traits.hpp || sed -i '0,/^} \\/\\/ treedec/s/^} \\/\\/ treedec/inline unsigned bagsize_t::dummy = 0;\\n} \\/\\/ treedec/' tdlib/src/graph_traits.hpp",
-      "sed -i 's|CXXFLAGS=-O3|CXXFLAGS=\"-O3 -fpermissive\"|' Makefile",
+      "sed -i -E 's/CXXFLAGS=(-O3|\"-O3 -fpermissive\")$/CXXFLAGS=\"-O3 -fpermissive -fnew-ttp-matching\"/' Makefile && grep -q 'CXXFLAGS=\"-O3 -fpermissive -fnew-ttp-matching\"' Makefile",
+      "rm -rf build bootstrap-stamp config-stamp grtd-stamp",
       "make"
     ],
     "tools": [
@@ -112,7 +113,7 @@
     "authors": "Lukas Larisch, Felix Salfelder",
     "pace_year": 2017,
     "description": "TDLIB PACE 2017 submission (C++ port of Tamaki + heuristic)",
-    "notes": "tw-exact and tw-heuristic are both 'grtd -m <mask>' wrappers; -m is a bitmask selecting the algorithm threads (tdlib/grtd/grtd.cc): 64 = USE_TA, the Tamaki exact algorithm; 128 = USE_P17, the PACE 2017 heuristics. So the exact/heuristic switch is real, not a parameter tweak."
+    "notes": "tw-exact and tw-heuristic are both 'grtd -m <mask>' wrappers; -m is a bitmask selecting the algorithm threads (tdlib/grtd/grtd.cc): 64 = USE_TA, the Tamaki exact algorithm; 128 = USE_P17, the PACE 2017 heuristics. So the exact/heuristic switch is real, not a parameter tweak. The top-level Makefile skips any stage whose *-stamp file exists, so a rebuild would keep a stale grtd (e.g. one linked against a Boost version that has since been removed); the stamps and build/ are deleted before make so every setup run configures and links afresh. configure forces -std=c++11, under which exact.hpp's passing of a variadic config template to a template template parameter with one parameter is rejected (by g++ 12 and 15 alike; clang 20 fails elsewhere); -fnew-ttp-matching applies the C++17 P0522 matching rule while keeping C++11 (with -std=gnu++17 instead, GCC 15 rejects gala's templates under -Wtemplate-body). Known upstream defects: in heuristic mode, when preprocessing reduces the whole graph (trees, BarbellGraph_10_5, pace2017 ex004), the P17 thread commits an upper bound of bagsize 1 computed on the empty kernel, so the 's td' header claims width 0 over correct bags (grtd itself prints 'c bug? 1 <real bagsize>'); --validate reports these as invalid. In exact mode TA can stop with 'memory exhausted: 52428800' and exit 1 (ex003), which the runner records as an error."
   },
   {
     "name": "jdrasil",
