@@ -206,8 +206,9 @@
     "repo": "https://github.com/mabseher/htd.git",
     "commit": "ee520543ca07df16ddd96432fa9ee3cad4c3336b",
     "build_steps": [
+      "sed -i 's/names_(original\\.nameLabeling_)/names_(original.names_)/' include/htd/NamedDirectedGraph.hpp",
       "mkdir -p build",
-      "cd build && cmake .. && make -j$(nproc)"
+      "cd build && cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 .. && make -j$(nproc) htd_main"
     ],
     "tools": [
       "cmake",
@@ -219,7 +220,8 @@
     "output_format": "pace_td",
     "authors": "Michael Abseher, Nysret Musliu, Stefan Woltran",
     "pace_year": 2017,
-    "description": "Hypertree/tree decomposition library (TU Wien)"
+    "description": "Hypertree/tree decomposition library (TU Wien)",
+    "notes": "GCC 15 rejects the uninstantiated NamedDirectedGraph copy constructor (-Wtemplate-body), which reads a nonexistent member original.nameLabeling_; it is patched to original.names_. Only the htd_main target is built: the bundled googletest 1.10 does not compile with GCC 15 (missing <cstdint>) and the tests are not needed. The cmake policy floor keeps CMake 4 from refusing the project's cmake_minimum_required(3.2)."
   },
   {
     "name": "minfill-mrs",
