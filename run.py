@@ -159,6 +159,14 @@ def _print_debug(result):
     print(f"  CWD:     {dbg['cwd']}")
     print(f"  Exit code: {dbg['returncode']}")
 
+    verrors = dbg.get("validation_errors") or []
+    if verrors:
+        print(f"  --- validation errors ({len(verrors)}) ---")
+        for line in verrors[:20]:
+            print(f"  | {line}")
+        if len(verrors) > 20:
+            print(f"  | ... and {len(verrors) - 20} more")
+
     stderr = dbg.get("stderr", "")
     print(f"  --- stderr ({len(stderr)} chars) ---")
     if stderr.strip():
