@@ -14,7 +14,7 @@ Required:
 
 Per-solver dependencies:
 - **Java solvers** (twalgor-tw, twalgor-rtw, tamaki-2017, jdrasil, turbocharge-2016, libtw): JDK 8+
-- **C/C++ solvers** (tamaki-2016, tdlib-p17, flowcutter-17, flowcutter-16, htd, minfill-mrs, minfillbg-mrs, cvo2, foxepstein-2016, iitm-2016, triangulator): GCC 7+ (g++ with C++17 support) and `make`
+- **C/C++ solvers** (tamaki-2016, tdlib-p17, flowcutter-17, flowcutter-16, htd, minfill-mrs, minfillbg-mrs, cvo2, foxepstein-2016, iitm-2016, triangulator, triangulator-msc): GCC 7+ (g++ with C++17 support) and `make`
   - **tdlib-p17** needs C++17 (the build inserts an inline variable), Boost, autotools and libtool (`sudo apt install libboost-graph-dev libboost-thread-dev autoconf automake libtool` on Debian/Ubuntu)
   - **htd** and **cvo2** require CMake (`sudo apt install cmake` on Debian/Ubuntu)
 - **QuickBB**: g++ with C++11 support, autotools (autoconf, automake)
@@ -94,6 +94,7 @@ Results are appended to the CSV as each run finishes, so an interrupted run (Ctr
 | cliquetrees-jl | Richard Samuelson | Julia | CliqueTrees.jl: PIDBT with safe rules/separators; also a min-fill heuristic |
 | libtw | van Dijk, van den Heuvel, Slob | Java | LibTW (2006): subset DP; also a greedy fill-in heuristic |
 | triangulator | Tuukka Korhonen | C++ | Triangulator: Bouchitte-Todinca DP over enumerated potential maximal cliques (PACE 2017 minimum fill-in track, 2nd place) |
+| triangulator-msc | Tuukka Korhonen | C++ | Triangulator, 2020 thesis version: same algorithm with preprocessing and a faster PMC enumerator; built without CPLEX/MaxHS (see `config/triangulator-msc-no-cplex.patch`) |
 
 ### Heuristic Solvers
 
@@ -117,6 +118,7 @@ Solver-specific details (source patches a build needs, which upstream variant is
 - **cvo2** uses all but one CPU core, so compare it with the others with that in mind (or run it alone).
 - **iitm-2016** answers SIGTERM with a trivial one-bag decomposition until its first chordal completion finishes, which takes over a minute on PACE 2017 instances, so short timeouts record width n-1.
 - **libtw** and **quickbb** print only the width, not the bags, so `--validate` cannot check them. libtw's exact algorithm stores every vertex subset and finishes only on small graphs.
+- **triangulator-msc** upstream prints only the width; the patch in `config/` adds the `.td` output and drops the CPLEX/MaxHS-dependent modes (hypertree width, MaxSAT phylogeny), which the runner does not use.
 - **bz-treewidth** builds the `BZTreewidth-DP` variant (the first in the upstream Makefile) with the .NET SDK instead of Mono; the other eleven variants are preprocessor symbols.
 
 ## Benchmarks
@@ -214,6 +216,7 @@ This repository does not redistribute any solver or benchmark source code. All e
 | cliquetrees-jl | MIT | [AlgebraicJulia/CliqueTrees.jl](https://github.com/AlgebraicJulia/CliqueTrees.jl) |
 | libtw | LGPL-2.1 | [WPettersson/libtw](https://github.com/WPettersson/libtw) (mirror of treewidth.com) |
 | triangulator | MIT | [Laakeri/Triangulator](https://github.com/Laakeri/Triangulator) |
+| triangulator-msc | MIT | [Laakeri/triangulator-msc](https://github.com/Laakeri/triangulator-msc) |
 
 ### Benchmark Licenses
 

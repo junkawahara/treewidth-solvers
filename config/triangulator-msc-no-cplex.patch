@@ -1,0 +1,374 @@
+diff --git a/src/triangulator/Makefile b/src/triangulator/Makefile
+index 18608d7..cb3a28a 100644
+--- a/src/triangulator/Makefile
++++ b/src/triangulator/Makefile
+@@ -1,31 +1,14 @@
+-CPLEXDIR = ../cplex
+-MAXHSDIR = ../MaxHS-3.0
+-
+ CC = g++
+-CFLAGS = -DIL_STD -std=c++11 -O2 -flto -Wall -Wextra -Wshadow -g -Wfatal-errors -fPIC -march=native
+-INC = -I $(MAXHSDIR) -I $(CPLEXDIR)/cplex/include -I $(CPLEXDIR)/concert/include
+-LIB = -lm -lz -lpthread -L $(MAXHSDIR)/build/release/lib -lmaxhs -L $(CPLEXDIR)/cplex/lib/x86-64_linux/static_pic -L $(CPLEXDIR)/concert/lib/x86-64_linux/static_pic -lconcert -lilocplex -lcplex
+-OBJFILES = treelength.o phylogeny.o maxhs_iface.o ftw.o ghtw.o hypercost.o min-fill.o tts.o bt_algorithm.o treewidth.o enumerator.o hypergraph.o phyl_mat.o graph.o utils.o io.o staticset.o matrix.o mcs.o bitset.o
++CFLAGS = -std=c++11 -O2 -flto -Wall -Wextra -Wshadow -g -Wfatal-errors -fPIC -march=native
++INC =
++LIB = -lm -lpthread
++OBJFILES = treelength.o phylogeny.o min-fill.o tts.o bt_algorithm.o treewidth.o enumerator.o hypergraph.o phyl_mat.o graph.o utils.o io.o staticset.o matrix.o mcs.o bitset.o
+ 
+ all: triangulator
+ 
+ triangulator: main.o $(OBJFILES)
+ 	$(CC) $(INC) $(CFLAGS) main.o $(OBJFILES) -o triangulator $(LIB)
+ 
+-# Special cases to suppress warnings in external libraries
+-maxhs_iface.o: maxhs_iface.cpp
+-	$(CC) $(INC) $(CFLAGS) -Wno-shadow -MMD -c maxhs_iface.cpp -o maxhs_iface.o
+-
+-ghtw.o: ghtw.cpp
+-	$(CC) $(INC) $(CFLAGS) -Wno-ignored-attributes -MMD -c ghtw.cpp -o ghtw.o
+-
+-ftw.o: ftw.cpp
+-	$(CC) $(INC) $(CFLAGS) -Wno-ignored-attributes -MMD -c ftw.cpp -o ftw.o
+-
+-hypercost.o: hypercost.cpp
+-	$(CC) $(INC) $(CFLAGS) -Wno-ignored-attributes -MMD -c hypercost.cpp -o hypercost.o
+-# Special cases end
+-
+ %.o: %.cpp
+ 	$(CC) $(INC) $(CFLAGS) -MMD -c $< -o $@
+ 
+diff --git a/src/triangulator/bt_algorithm.cpp b/src/triangulator/bt_algorithm.cpp
+index a9d03df..0096ae9 100644
+--- a/src/triangulator/bt_algorithm.cpp
++++ b/src/triangulator/bt_algorithm.cpp
+@@ -8,7 +8,6 @@
+ #include "graph.hpp"
+ #include "bitset.hpp"
+ #include "utils.hpp"
+-#include "maxhs_iface.hpp"
+ 
+ using std::pair;
+ using std::vector;
+@@ -206,74 +205,6 @@ pair<int64_t, vector<Edge>> BtAlgorithm::Solve(const Graph& graph, const vector<
+   }
+ }
+ 
+-void BtAlgorithm::BuildColorMaxSAT(const Graph& graph, const vector<Bitset>& pmcs, const vector<int>& colors, const vector<int>& color_vars, MaxhsInterface& maxsat) {
+-  assert(graph.IsConnected());
+-  assert((int)colors.size() == graph.n());
+-  for (int c : colors) {
+-    assert(c >= 0 && c < (int)color_vars.size() && color_vars[c] > 0);
+-  }
+-  Triplets triplets(graph, pmcs);
+-
+-  vector<int> pmc_vars;
+-  for (const auto& pmc : pmcs) {
+-    std::map<int, int> color_cs;
+-    for (int v : pmc) {
+-      color_cs[colors[v]]++;
+-    }
+-    vector<int> bad_colors;
+-    for (auto c : color_cs) {
+-      if (c.second >= 2) {
+-        bad_colors.push_back(c.first);
+-      }
+-    }
+-    if (bad_colors.size() == 0) {
+-      pmc_vars.push_back(maxsat.TrueLit);
+-    } else {
+-      pmc_vars.push_back(maxsat.NewVar());
+-      for (int c : bad_colors) {
+-        maxsat.AddClause({-pmc_vars.back(), color_vars[c]});
+-      }
+-    }
+-  }
+-
+-  std::map<pair<int, int>, int> block_vars;
+-  std::map<pair<int, int>, vector<int>> child_trips;
+-  for (const auto& triplet : triplets.trips) {
+-    vector<int> cbs;
+-    bool child_missing = false;
+-    for (const pair<int, int>& child : triplets.Children(triplet)) {
+-      if (block_vars.count(child)) {
+-        cbs.push_back(block_vars[child]);
+-      } else {
+-        child_missing = true;
+-        break;
+-      }
+-    }
+-    if (child_missing) continue;
+-    int trip_var = maxsat.NewVar();
+-    for (int cb : cbs) {
+-      maxsat.AddClause({-trip_var, cb});
+-    }
+-    maxsat.AddClause({-trip_var, pmc_vars[get<0>(triplet)]});
+-
+-    pair<int, int> this_state = {get<1>(triplet), get<2>(triplet)};
+-    if (!block_vars.count(this_state)) {
+-      block_vars[this_state] = maxsat.NewVar();
+-    }
+-    child_trips[this_state].push_back(trip_var);
+-  }
+-  for (const auto& bv : block_vars) {
+-    auto this_state = bv.first;
+-    int var = bv.second;
+-    vector<int> clause = child_trips[this_state];
+-    clause.push_back(-var);
+-    maxsat.AddClause(clause);
+-  }
+-  assert(block_vars.count(triplets.root));
+-  maxsat.AddClause({block_vars[triplets.root]});
+-}
+-
+-
+ void BtAlgorithm::SetTW() {
+   problem_ = Problem::tw;
+ }
+diff --git a/src/triangulator/bt_algorithm.hpp b/src/triangulator/bt_algorithm.hpp
+index 0e3aacc..8bbf13d 100644
+--- a/src/triangulator/bt_algorithm.hpp
++++ b/src/triangulator/bt_algorithm.hpp
+@@ -3,7 +3,6 @@
+ #include <vector>
+ 
+ #include "graph.hpp"
+-#include "maxhs_iface.hpp"
+ 
+ namespace triangulator {
+ class BtAlgorithm {
+@@ -16,7 +15,6 @@ public:
+     phylogeny
+   };
+   std::pair<int64_t, std::vector<Edge>> Solve(const Graph& graph, const std::vector<Bitset>& pmcs);
+-  void BuildColorMaxSAT(const Graph& graph, const std::vector<Bitset>& pmcs, const std::vector<int>& colors, const std::vector<int>& color_vars, MaxhsInterface& maxsat);
+   void SetTW();
+   void SetMF();
+   void SetTTS(const std::vector<int64_t>& bn_domains);
+diff --git a/src/triangulator/main.cpp b/src/triangulator/main.cpp
+index a7b553b..c9b7c07 100644
+--- a/src/triangulator/main.cpp
++++ b/src/triangulator/main.cpp
+@@ -5,6 +5,9 @@
+ #include <iomanip>
+ #include <set>
+ #include <cassert>
++#include <sstream>
++#include <string>
++#include <algorithm>
+ 
+ #include "graph.hpp"
+ #include "hypergraph.hpp"
+@@ -16,41 +19,109 @@
+ #include "staticset.hpp"
+ #include "tts.hpp"
+ #include "min-fill.hpp"
+-#include "ghtw.hpp"
+-#include "ftw.hpp"
+ #include "phylogeny.hpp"
+ #include "treelength.hpp"
+ 
+ using namespace triangulator;
+ 
++// Writes a tree decomposition of a chordal graph in the PACE 2017 .td format.
++// The bags are the vertices of a perfect elimination order together with
++// their later neighbours; the parent of a bag is the bag of its earliest
++// later neighbour. Vertex labels are mapped back to the input's labels, and
++// vertices named only by the "p tw n m" header (isolated vertices, which the
++// reader never sees) get bags of their own. The bags of the components are
++// chained so the output is one tree.
++void PrintTreeDecomposition(const Graph& chordal, Io& io, int header_n) {
++  int n = chordal.n();
++  std::vector<int> order = mcs::Mcs(chordal);
++  std::vector<int> pos = utils::PermInverse(order);
++  std::vector<std::vector<int>> bags(n);
++  std::vector<int> parent(n, -1);
++  std::vector<char> seen(std::max(header_n, 0) + 1, 0);
++  for (int i = 0; i < n; i++) {
++    int x = order[i];
++    int label = std::stoi(io.MapBack(x));
++    if (label >= 1 && label < (int)seen.size()) seen[label] = 1;
++    bags[i].push_back(label);
++    for (int nx : chordal.Neighbors(x)) {
++      if (pos[nx] > i) {
++        bags[i].push_back(std::stoi(io.MapBack(nx)));
++        if (parent[i] == -1 || pos[nx] < parent[i]) parent[i] = pos[nx];
++      }
++    }
++  }
++  for (int label = 1; label < (int)seen.size(); label++) {
++    if (!seen[label]) {
++      bags.push_back({label});
++      parent.push_back(-1);
++    }
++  }
++  int num_vertices = std::max(header_n, n);
++  size_t max_bag = 1;
++  for (const auto& bag : bags) max_bag = std::max(max_bag, bag.size());
++  std::cout<<"s td "<<bags.size()<<" "<<max_bag<<" "<<num_vertices<<"\n";
++  for (size_t i = 0; i < bags.size(); i++) {
++    std::cout<<"b "<<i+1;
++    for (int v : bags[i]) std::cout<<" "<<v;
++    std::cout<<"\n";
++  }
++  int prev_root = -1;
++  for (size_t i = 0; i < bags.size(); i++) {
++    if (parent[i] != -1) {
++      std::cout<<parent[i]+1<<" "<<i+1<<"\n";
++    } else {
++      if (prev_root != -1) std::cout<<prev_root+1<<" "<<i+1<<"\n";
++      prev_root = i;
++    }
++  }
++  std::cout.flush();
++}
++
+ int main(int argc, char** argv) {
+   assert(argc == 2);
+   std::string ag(argv[1]);
+   // Solving:
+   if (ag == "tw") {
++    // Read the input first: Io::ReadGraph takes the vertex set from the
++    // edge list, so the header's vertex count is needed to emit isolated
++    // vertices, and comment lines with two tokens would be read as edges.
++    std::stringstream input;
++    std::string line;
++    int header_n = 0;
++    while (std::getline(std::cin, line)) {
++      if (line.empty() || line[0] == 'c') continue;
++      if (line.size() >= 5 && line.substr(0, 5) == "p tw ") {
++        std::stringstream hs(line);
++        std::string p, tw_s;
++        hs >> p >> tw_s >> header_n;
++      } else if (header_n > 0) {
++        // A self-loop says nothing about the treewidth, and Graph::AddEdge
++        // asserts on one.
++        std::stringstream es(line);
++        std::string a, b;
++        es >> a >> b;
++        if (a == b) continue;
++      }
++      input << line << '\n';
++    }
+     Io io;
+-    Graph graph = io.ReadGraph(std::cin);
+-    TW tw;
+-    auto sol_graph = tw.Treewidth(graph);
+-    Log::Write(1, "Treewidth: ", mcs::Treewidth(sol_graph));
++    Graph graph = io.ReadGraph(input);
++    if (graph.m() == 0) {
++      // Edgeless: nothing to triangulate, and TW asserts on empty input.
++      Log::Write(1, "Treewidth: ", 0);
++      PrintTreeDecomposition(graph, io, header_n);
++    } else {
++      TW tw;
++      auto sol_graph = tw.Treewidth(graph);
++      Log::Write(1, "Treewidth: ", mcs::Treewidth(sol_graph));
++      PrintTreeDecomposition(sol_graph, io, header_n);
++    }
+   } else if (ag == "minfill") {
+     Io io;
+     Graph graph = io.ReadGraph(std::cin);
+     MinFill mf;
+     auto sol_graph = mf.MinimumFill(graph);
+     Log::Write(1, "Minfill: ", graph.FillEdges(sol_graph).size());
+-  } else if (ag == "ghtw") {
+-    Io io;
+-    HyperGraph hg = io.ReadHyperGraph(std::cin);
+-    GHTW ghtw;
+-    auto sol_graph = ghtw.CompGHTW(hg.PrimalGraph(), hg.Edges());
+-    Log::Write(1, "GHTW: ", ChordGHTW(sol_graph, hg.Edges()));
+-  } else if (ag == "fhtw") {
+-    Io io;
+-    HyperGraph hg = io.ReadHyperGraph(std::cin);
+-    FHTW fhtw;
+-    auto sol_graph = fhtw.CompFHTW(hg.PrimalGraph(), hg.Edges());
+-    Log::Write(1, "FHTW: ", ChordFHTW(sol_graph, hg.Edges()));
+   } else if (ag == "tts") {
+     Io io;
+     auto inst = io.ReadBayesNet(std::cin);
+@@ -58,10 +129,6 @@ int main(int argc, char** argv) {
+     auto sol_graph = tts.TotalTableSize(inst.second, inst.first);
+     Log::Write(1, "Treewidth: ", mcs::Treewidth(sol_graph));
+     Log::Write(1, "TTS: ", mcs::TotalTableSize(sol_graph, inst.first));
+-  } else if (ag == "phyl_maxcomp") {
+-    Io io;
+-    triangulator::PhylMat pm = io.ReadPhylMat(std::cin);
+-    std::cout<<CharRemoveMaxSat(pm).size()<<std::endl;
+   } else if (ag == "phyl_bin_maxcomp") {
+     Io io;
+     triangulator::PhylMat pm = io.ReadPhylMat(std::cin);
+diff --git a/src/triangulator/phylogeny.cpp b/src/triangulator/phylogeny.cpp
+index 346abbb..ca951f0 100644
+--- a/src/triangulator/phylogeny.cpp
++++ b/src/triangulator/phylogeny.cpp
+@@ -3,7 +3,6 @@
+ #include <vector>
+ 
+ #include "graph.hpp"
+-#include "maxhs_iface.hpp"
+ #include "phyl_mat.hpp"
+ #include "enumerator.hpp"
+ #include "graph.hpp"
+@@ -74,50 +73,6 @@ void PhylogenyPreprocessor::AddInstance(const Graph& graph, const PhylMat& opm)
+ }
+ } // namespace
+ 
+-vector<int> CharRemoveMaxSat(const PhylMat& pm) {
+-  Timer time_phase1;
+-  time_phase1.start();
+-  Log::Write(3, "Graph size ", pm.GetGraph().n());
+-  PhylogenyPreprocessor ppp;
+-  auto instances = ppp.Preprocess(pm);
+-
+-  MaxhsInterface maxsat;
+-  vector<int> color_vars;
+-  for (int i=0;i<pm.m();i++){
+-  	color_vars.push_back(maxsat.NewVar());
+-  	maxsat.AddSoftClause({-color_vars.back()}, 1);
+-  }
+-
+-  for (const pair<Graph, vector<int>>& instance : instances) {
+-  	Log::Write(3, "Inst ", instance.first.n(), " ", instance.first.m());
+-  	Enumerator pe;
+-  	auto pmcs = pe.AdvancedPmcEnum(instance.first);
+-  	Log::Write(3, "PMCS ", pmcs.size());
+-
+-  	BtAlgorithm bt;
+-  	bt.BuildColorMaxSAT(instance.first, pmcs, instance.second, color_vars, maxsat);
+-  }
+-  time_phase1.stop();
+-  Log::Write(3, "Phase1 ", time_phase1.getTime().count());
+-  Timer time_phase2;
+-  time_phase2.start();
+-  assert(maxsat.Solve());
+-  time_phase2.stop();
+-  Log::Write(3, "Phase2 ", time_phase2.getTime().count());
+-  vector<int> sol;
+-  for (int i=0;i<pm.m();i++){
+-  	if (maxsat.SolutionValue(color_vars[i])) {
+-  		sol.push_back(i);
+-  	}
+-  }
+-  Log::Write(3, "remc ", sol.size());
+-  for (int c : sol) {
+-  	std::cout<<c<<" ";
+-  }
+-  std::cout<<std::endl;
+-  return sol;
+-}
+-
+ bool PerfectPhylogeny(const PhylMat& pm) {
+   Timer time_phase1;
+   time_phase1.start();
+diff --git a/src/triangulator/phylogeny.hpp b/src/triangulator/phylogeny.hpp
+index 0ca32ed..458abf9 100644
+--- a/src/triangulator/phylogeny.hpp
++++ b/src/triangulator/phylogeny.hpp
+@@ -8,5 +8,4 @@
+ namespace triangulator {
+ bool PerfectPhylogeny(const PhylMat& pm);
+ std::vector<int> BinaryCharRemove(const PhylMat& pm);
+-std::vector<int> CharRemoveMaxSat(const PhylMat& pm);
+ } // namespace
+\ No newline at end of file

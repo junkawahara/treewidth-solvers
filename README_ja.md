@@ -14,7 +14,7 @@
 
 ソルバーごとの依存:
 - **Java ソルバー** (twalgor-tw, twalgor-rtw, tamaki-2017, jdrasil, turbocharge-2016, libtw): JDK 8+
-- **C/C++ ソルバー** (tamaki-2016, tdlib-p17, flowcutter-17, flowcutter-16, htd, minfill-mrs, minfillbg-mrs, cvo2, foxepstein-2016, iitm-2016, triangulator): GCC 7+（C++17 対応の g++）と `make`
+- **C/C++ ソルバー** (tamaki-2016, tdlib-p17, flowcutter-17, flowcutter-16, htd, minfill-mrs, minfillbg-mrs, cvo2, foxepstein-2016, iitm-2016, triangulator, triangulator-msc): GCC 7+（C++17 対応の g++）と `make`
   - **tdlib-p17** は C++17（ビルド時にインライン変数を挿入します）、Boost、autotools、libtool が必要です（Debian/Ubuntu: `sudo apt install libboost-graph-dev libboost-thread-dev autoconf automake libtool`）
   - **htd** と **cvo2** は CMake が必要です（Debian/Ubuntu: `sudo apt install cmake`）
 - **QuickBB**: C++11 対応の g++、autotools (autoconf, automake)
@@ -94,6 +94,7 @@ python run.py --solver all --benchmark all --timeout 60 --max-instances 5
 | cliquetrees-jl | Richard Samuelson | Julia | CliqueTrees.jl: safe rules/separators 付き PIDBT。min-fill ヒューリスティックも持つ |
 | libtw | van Dijk, van den Heuvel, Slob | Java | LibTW (2006): 部分集合 DP。greedy fill-in ヒューリスティックも持つ |
 | triangulator | Tuukka Korhonen | C++ | Triangulator: 列挙した potential maximal clique 上の Bouchitte-Todinca DP（PACE 2017 minimum fill-in track 2 位） |
+| triangulator-msc | Tuukka Korhonen | C++ | Triangulator の 2020 年修士論文版。同じアルゴリズムに前処理と高速な PMC 列挙を加えたもの。CPLEX/MaxHS 抜きでビルド（`config/triangulator-msc-no-cplex.patch`） |
 
 ### ヒューリスティックソルバー (Heuristic)
 
@@ -117,6 +118,7 @@ python run.py --solver all --benchmark all --timeout 60 --max-instances 5
 - **cvo2** は CPU コアを 1 つ残して全部使うので、他と比較する際は注意してください（単独で走らせるのが無難です）。
 - **iitm-2016** は最初の弦グラフ化が終わるまで SIGTERM に対して自明な 1 バッグ分解を返します。PACE 2017 インスタンスでは 1 分以上かかるため、短いタイムアウトでは幅 n-1 が記録されます。
 - **libtw** と **quickbb** は幅だけを出力しバッグを出さないので、`--validate` では検証できません。libtw の厳密アルゴリズムは全頂点部分集合を保持するため、小さいグラフでしか終わりません。
+- **triangulator-msc** の上流は幅しか出力しません。`config/` のパッチで `.td` 出力を追加し、runner が使わない CPLEX/MaxHS 依存のモード（ハイパー木幅、MaxSAT による系統解析）を外しています。
 - **bz-treewidth** は上流 Makefile の先頭にある `BZTreewidth-DP` バリアントを Mono ではなく .NET SDK でビルドします。残り 11 バリアントはプリプロセッサシンボルの違いです。
 
 ## ベンチマーク一覧
@@ -214,6 +216,7 @@ p tw <頂点数> <辺数>
 | cliquetrees-jl | MIT | [AlgebraicJulia/CliqueTrees.jl](https://github.com/AlgebraicJulia/CliqueTrees.jl) |
 | libtw | LGPL-2.1 | [WPettersson/libtw](https://github.com/WPettersson/libtw)（treewidth.com のミラー） |
 | triangulator | MIT | [Laakeri/Triangulator](https://github.com/Laakeri/Triangulator) |
+| triangulator-msc | MIT | [Laakeri/triangulator-msc](https://github.com/Laakeri/triangulator-msc) |
 
 ### ベンチマークのライセンス
 

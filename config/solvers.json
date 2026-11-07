@@ -492,5 +492,27 @@
     "pace_year": null,
     "description": "Triangulator: Bouchitte-Todinca algorithm over enumerated potential maximal cliques (C++)",
     "notes": "Exact Bouchitte-Todinca dynamic programming over all potential maximal cliques, listed with the Bouchitte-Todinca enumeration; the same code base placed second in the PACE 2017 minimum fill-in track. -treewidth reads a PACE .gr from stdin and writes the decomposition ('s td' header, bags, tree edges) to stdout; the optimal width, fill edge count and time go to stderr. Disconnected and edgeless graphs come out as a single tree. Builds with the top-level Makefile (plain C++11, no extra libraries). The author notes that Laakeri/triangulator-msc is faster, but that build links CPLEX and MaxHS unconditionally, so this version is used."
+  },
+  {
+    "name": "triangulator-msc",
+    "type": "exact",
+    "language": "cpp",
+    "repo": "https://github.com/Laakeri/triangulator-msc.git",
+    "commit": "eec53f1b943a3c448e454500f2d672f096b59df1",
+    "build_steps": [
+      "git apply --check -R ../../config/triangulator-msc-no-cplex.patch 2>/dev/null || git apply ../../config/triangulator-msc-no-cplex.patch",
+      "make -C src/triangulator"
+    ],
+    "tools": [
+      "make"
+    ],
+    "run_command": "./src/triangulator/triangulator tw < {input}",
+    "run_mode": "stdin_stdout",
+    "input_format": "pace_gr",
+    "output_format": "pace_td",
+    "authors": "Tuukka Korhonen",
+    "pace_year": null,
+    "description": "Triangulator (2020 master's thesis version): Bouchitte-Todinca algorithm with preprocessing and a faster potential maximal clique enumerator (C++)",
+    "notes": "The successor of triangulator, which the author reports it outperforms. Upstream links CPLEX and MaxHS unconditionally and, in tw mode, prints only 'Treewidth: <w>' to stderr without the decomposition. config/triangulator-msc-no-cplex.patch removes the CPLEX/MaxHS objects (ghtw, ftw, hypercost, maxhs_iface, the CharRemoveMaxSat and BuildColorMaxSAT functions) from the Makefile and sources, and adds a PACE .td writer to main.cpp: bags are the vertices of a perfect elimination order of the returned chordal graph with their later neighbours, and the parent of a bag is the bag of the earliest later neighbour. The patch also reads stdin before parsing so that comment lines (which the upstream reader would take as edges when they have two tokens), blank lines (which trip an assert) and self-loops (another assert) are dropped, and so that isolated vertices, which the upstream reader never sees, get bags of their own from the header's vertex count. Logging is left at upstream's default, so stderr carries a few progress lines per run. Built with -march=native, so the binary is tied to the machine it was built on."
   }
 ]
