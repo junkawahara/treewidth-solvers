@@ -1,0 +1,15 @@
+# Exact versions installed into solvers/passagemath/venv (pip -c), so a
+# rebuild gets the same Sage code and the same transitive dependencies.
+# Resolved on 2026-11-08 for passagemath-graphs[cliquer] under CPython 3.13.
+cysignals==1.13.1
+Cython==3.3.1
+gmpy2==2.4.0a1
+memory_allocator==0.1.4
+packaging==26.3
+passagemath-categories==10.8.13
+passagemath-cliquer==10.8.13
+passagemath-environment==10.8.13
+passagemath-graphs==10.8.13
+passagemath-objects==10.8.13
+platformdirs==4.14.5
+typing_extensions==4.16.0

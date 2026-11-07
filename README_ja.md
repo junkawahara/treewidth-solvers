@@ -22,6 +22,7 @@
 - **Rust ソルバー** (arboretum, goatd): `cargo` を含む Rust ツールチェーン（<https://rustup.rs>）。goatd は Rust 1.88+ と、同梱の FlowCutter をビルドするための C++20 コンパイラ（g++ 12+）が必要です
 - **bz-treewidth**: .NET SDK 8 以上（`dotnet`、例: `sudo apt install dotnet-sdk-8.0`）。上流の Mono ベースの Makefile は使いません
 - **TreeWidthSolver.jl, CliqueTrees.jl**: Julia 1.10+（パッケージの `Project.toml` が要求）
+- **passagemath**: Python 3.11+ と `venv`、Python ヘッダ、`gcc`（Debian/Ubuntu では `sudo apt install python3-venv python3-dev`）。ビルド時に約 110 MB の wheel をダウンロードし、約 430 MB の venv を作ります
 
 `setup.py` はこれら（コンパイラ、`make`、`cmake`、`autoreconf`、`jar`、`cargo`、`dotnet`、Boost ヘッダなど）を事前に確認し、足りないソルバーは不足しているものを表示してスキップします。
 
@@ -74,7 +75,7 @@ python run.py --solver all --benchmark all --timeout 60 --max-instances 5
 
 ### インストールマーカー
 
-`setup.py` はクローン完了時にソルバー／ベンチマークのディレクトリへ `.tw_download_complete` を、全ビルドステップ成功時に `.tw_build_complete` を書きます。`run.py` はビルドマーカーがあるソルバーだけをインストール済みとみなします。ビルド出力はソルバーディレクトリの `.tw_build.log` に書かれます。再クローンせずにビルドし直すには `python setup.py --solver NAME` をもう一度実行してください（ディレクトリは保持され、ビルドステップだけが再実行されます）。クローンは `config/*.json` に記載のコミットに固定されています。固定コミットでクローンし直すにはディレクトリを削除してください。
+`setup.py` はクローン完了時にソルバー／ベンチマークのディレクトリへ `.tw_download_complete` を、全ビルドステップ成功時に `.tw_build_complete` を書きます。`run.py` はビルドマーカーがあるソルバーだけをインストール済みとみなします。ビルド出力はソルバーディレクトリの `.tw_build.log` に書かれます。再クローンせずにビルドし直すには `python setup.py --solver NAME` をもう一度実行してください（ディレクトリは保持され、ビルドステップだけが再実行されます）。クローンは `config/*.json` に記載のコミットに固定されています。固定コミットでクローンし直すにはディレクトリを削除してください。passagemath はクローンせず `solvers/passagemath/venv` に pip でインストールし、全パッケージの版を `config/passagemath-constraints.txt` で固定しています。venv はセットアップのたびに作り直します。
 
 ## ソルバー一覧
 
@@ -97,6 +98,7 @@ python run.py --solver all --benchmark all --timeout 60 --max-instances 5
 | triangulator | Tuukka Korhonen | C++ | Triangulator: 列挙した potential maximal clique 上の Bouchitte-Todinca DP（PACE 2017 minimum fill-in track 2 位） |
 | triangulator-msc | Tuukka Korhonen | C++ | Triangulator の 2020 年修士論文版。同じアルゴリズムに前処理と高速な PMC 列挙を加えたもの。CPLEX/MaxHS 抜きでビルド（`config/triangulator-msc-no-cplex.patch`） |
 | treedec | Larisch, Salfelder | C++ | treedec (tdlib) の 2025 年版を `tdecomp` ドライバ経由で実行。`--ex17` は前処理 + Tamaki 厳密法。`--ppfitm`（前処理 + fill-in + 三角化最小化）ヒューリスティックも持つ |
+| passagemath | The Sage Developers | Python/Cython | SageMath 自前の厳密法 `Graph.treewidth(algorithm='sage')`（カットと連結成分の DP）。pip で入る passagemath-graphs を使用 |
 
 ### ヒューリスティックソルバー (Heuristic)
 
@@ -122,6 +124,7 @@ python run.py --solver all --benchmark all --timeout 60 --max-instances 5
 - **libtw** と **quickbb** は幅だけを出力しバッグを出さないので、`--validate` では検証できません。libtw の厳密アルゴリズムは全頂点部分集合を保持するため、小さいグラフでしか終わりません。
 - **triangulator-msc** の上流は幅しか出力しません。`config/` のパッチで `.td` 出力を追加し、runner が使わない CPLEX/MaxHS 依存のモード（ハイパー木幅、MaxSAT による系統解析）を外しています。
 - **treedec** には各インスタンスの単純グラフ化コピー（自己ループ・多重辺・コメント・空行を除去）を渡します。リーダーが空行と自己ループで落ちるためで、transit-graphs には自己ループとコメントの両方が含まれます。exact モードは PACE 2017 の方式を現行ライブラリで組み直したものなので、2017 年当時の提出物をそのまま動かす tdlib-p17 と比較してください。
+- **passagemath** は tdlib ではなく Sage 自前のアルゴリズムを使います（passagemath-tdlib があると Sage は tdlib を選びますが、それは tdlib-p17 と treedec で既にカバーしています）。小さなグラフ以外では PACE のソルバーよりずっと遅く、tamaki-2017 が 0.3 秒で解く BrinkmannGraph に 50 秒、CoxeterGraph に 119 秒かかります。
 - **bz-treewidth** は上流 Makefile の先頭にある `BZTreewidth-DP` バリアントを Mono ではなく .NET SDK でビルドします。残り 11 バリアントはプリプロセッサシンボルの違いです。
 
 ## ベンチマーク一覧
@@ -190,7 +193,7 @@ p tw <頂点数> <辺数>
 
 ## ライセンス
 
-このリポジトリはソルバーやベンチマークのソースコードを再配布していません。全ての外部コードはセットアップ時に `git clone` でダウンロードされます。各ソルバー・ベンチマークは個別のライセンスに従います：
+このリポジトリはソルバーやベンチマークのソースコードを再配布していません。全ての外部コードはセットアップ時に `git clone` でダウンロードされます（passagemath だけは PyPI から `pip` でインストールします）。各ソルバー・ベンチマークは個別のライセンスに従います：
 
 ### ソルバーのライセンス
 
@@ -220,6 +223,7 @@ p tw <頂点数> <辺数>
 | libtw | LGPL-2.1 | [WPettersson/libtw](https://github.com/WPettersson/libtw)（treewidth.com のミラー） |
 | triangulator | MIT | [Laakeri/Triangulator](https://github.com/Laakeri/Triangulator) |
 | triangulator-msc | MIT | [Laakeri/triangulator-msc](https://github.com/Laakeri/triangulator-msc) |
+| passagemath | GPL-2.0-or-later | [passagemath/passagemath](https://github.com/passagemath/passagemath)（PyPI: [passagemath-graphs](https://pypi.org/project/passagemath-graphs/)） |
 | treedec | GPL-2.0 / GPL-3.0（ファイルごと） | [freetdi/treedec](https://codeberg.org/freetdi/treedec)（ミラー: [freetdi/tdlib](https://github.com/freetdi/tdlib)）。gala ヘッダは GPL-3.0、[freetdi/gala](https://github.com/freetdi/gala) |
 
 ### ベンチマークのライセンス

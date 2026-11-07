@@ -781,10 +781,45 @@ def test_every_configured_repo_is_pinned_to_a_full_sha():
     import re
 
     from lib.benchmark_registry import load_benchmarks
-    from lib.solver_registry import load_solvers
+    from lib.solver_registry import BASE_DIR, load_solvers
 
     for entry in load_solvers() + load_benchmarks():
-        assert re.fullmatch(r"[0-9a-f]{40}", entry.get("commit", "")), entry["name"]
+        if "repo" in entry:
+            assert re.fullmatch(r"[0-9a-f]{40}", entry.get("commit", "")), entry["name"]
+            continue
+        # A solver without a repository is installed with pip; it must name
+        # a constraints file that pins every package to one version, and a
+        # build step must use it.
+        path = BASE_DIR / entry["pip_constraints"]
+        lines = [ln.strip() for ln in path.read_text().splitlines()]
+        pins = [ln for ln in lines if ln and not ln.startswith("#")]
+        assert pins, entry["name"]
+        for pin in pins:
+            assert re.fullmatch(r"[A-Za-z0-9_.-]+==[^=\s]+", pin), (entry["name"], pin)
+        assert any(entry["pip_constraints"].split("/")[-1] in step
+                   for step in entry["build_steps"]), entry["name"]
+
+
+def test_solver_without_repo_gets_a_directory_and_no_clone(tmp_path):
+    import lib.solver_registry as reg
+
+    orig_dir, orig_clone = reg.SOLVERS_DIR, reg.clone_pinned
+    reg.SOLVERS_DIR = tmp_path
+
+    def no_clone(*args):
+        raise AssertionError("clone_pinned called for a solver without a repo")
+
+    reg.clone_pinned = no_clone
+    try:
+        solver = {"name": "piponly", "build_steps": []}
+        assert reg.download_solver(solver)
+        assert (tmp_path / "piponly" / reg.DOWNLOAD_MARKER).exists()
+        # A second setup keeps what the build put there.
+        (tmp_path / "piponly" / "venv").mkdir()
+        assert reg.download_solver(solver)
+        assert (tmp_path / "piponly" / "venv").is_dir()
+    finally:
+        reg.SOLVERS_DIR, reg.clone_pinned = orig_dir, orig_clone
 
 
 def test_every_configured_solver_is_well_formed():
@@ -804,9 +839,11 @@ def test_every_configured_solver_is_well_formed():
     for s in reg.load_solvers():
         assert s["name"] not in seen, s["name"]
         seen.add(s["name"])
-        for key in ("type", "language", "repo", "commit", "build_steps",
+        for key in ("type", "language", "build_steps",
                     "run_command", "run_mode", "description"):
             assert key in s, (s["name"], key)
+        # Either a pinned git clone or a pinned pip install.
+        assert ("repo" in s and "commit" in s) or "pip_constraints" in s, s["name"]
         assert s["type"] in ("exact", "heuristic", "both"), s["name"]
         assert s["language"] in reg.LANGUAGE_TOOLS, (s["name"], s["language"])
         assert s["run_mode"] in ("stdin_stdout", "stdin_stdout_signal", "file"), s["name"]

@@ -22,6 +22,7 @@ Per-solver dependencies:
 - **Rust solvers** (arboretum, goatd): a Rust toolchain with `cargo` (<https://rustup.rs>); goatd needs Rust 1.88+ and a C++20 compiler (g++ 12+) for its vendored FlowCutter
 - **bz-treewidth**: a .NET SDK 8 or newer (`dotnet`, e.g. `sudo apt install dotnet-sdk-8.0`); the project's own Mono-based Makefile is not used
 - **TreeWidthSolver.jl, CliqueTrees.jl**: Julia 1.10+ (required by the packages' `Project.toml`)
+- **passagemath**: Python 3.11+ with `venv` and the Python headers, plus `gcc` (`sudo apt install python3-venv python3-dev` on Debian/Ubuntu); the build downloads about 110 MB of wheels into a venv of about 430 MB
 
 `setup.py` checks these up front (compilers, `make`, `cmake`, `autoreconf`, `jar`, `cargo`, `dotnet`, Boost headers, ...) and skips a solver whose tools are missing, naming them.
 
@@ -74,7 +75,7 @@ Results are appended to the CSV as each run finishes, so an interrupted run (Ctr
 
 ### Installation markers
 
-`setup.py` writes `.tw_download_complete` into a solver or benchmark directory once its clone has finished and `.tw_build_complete` once every build step has succeeded; `run.py` treats a solver as installed only if the build marker exists. Build output is written to `.tw_build.log` in the solver directory. To rebuild a solver without re-cloning, run `python setup.py --solver NAME` again (the directory is kept; only the build steps rerun). Clones are pinned to the commits listed in `config/*.json`; delete a directory to re-clone it at the pinned commit.
+`setup.py` writes `.tw_download_complete` into a solver or benchmark directory once its clone has finished and `.tw_build_complete` once every build step has succeeded; `run.py` treats a solver as installed only if the build marker exists. Build output is written to `.tw_build.log` in the solver directory. To rebuild a solver without re-cloning, run `python setup.py --solver NAME` again (the directory is kept; only the build steps rerun). Clones are pinned to the commits listed in `config/*.json`; delete a directory to re-clone it at the pinned commit. passagemath is not cloned but installed with pip into `solvers/passagemath/venv`, with every package pinned by `config/passagemath-constraints.txt`; its venv is recreated on every setup run.
 
 ## Solvers
 
@@ -97,6 +98,7 @@ Results are appended to the CSV as each run finishes, so an interrupted run (Ctr
 | triangulator | Tuukka Korhonen | C++ | Triangulator: Bouchitte-Todinca DP over enumerated potential maximal cliques (PACE 2017 minimum fill-in track, 2nd place) |
 | triangulator-msc | Tuukka Korhonen | C++ | Triangulator, 2020 thesis version: same algorithm with preprocessing and a faster PMC enumerator; built without CPLEX/MaxHS (see `config/triangulator-msc-no-cplex.patch`) |
 | treedec | Larisch, Salfelder | C++ | treedec (tdlib) at its 2025 head, via its `tdecomp` driver: `--ex17` preprocessing + Tamaki exact; also `--ppfitm` preprocessing + fill-in + triangulation minimisation heuristic |
+| passagemath | The Sage Developers | Python/Cython | SageMath's own exact `Graph.treewidth(algorithm='sage')` (cut/component dynamic programming), from the pip-installable passagemath-graphs |
 
 ### Heuristic Solvers
 
@@ -122,6 +124,7 @@ Solver-specific details (source patches a build needs, which upstream variant is
 - **libtw** and **quickbb** print only the width, not the bags, so `--validate` cannot check them. libtw's exact algorithm stores every vertex subset and finishes only on small graphs.
 - **triangulator-msc** upstream prints only the width; the patch in `config/` adds the `.td` output and drops the CPLEX/MaxHS-dependent modes (hypertree width, MaxSAT phylogeny), which the runner does not use.
 - **treedec** is fed a simple-graph copy of each instance (self-loops, parallel edges, comments and blank lines removed), because its reader crashes on blank lines and self-loops; the transit graphs contain both self-loops and comments. Its exact mode is the PACE 2017 approach rebuilt from the current library, so compare it with tdlib-p17, which runs the frozen 2017 submission.
+- **passagemath** runs Sage's own algorithm, not tdlib (which Sage would pick if passagemath-tdlib were installed, and which tdlib-p17 and treedec already cover). It is far slower than the PACE solvers on anything but small graphs: BrinkmannGraph takes 50 s and CoxeterGraph 119 s, where tamaki-2017 needs 0.3 s.
 - **bz-treewidth** builds the `BZTreewidth-DP` variant (the first in the upstream Makefile) with the .NET SDK instead of Mono; the other eleven variants are preprocessor symbols.
 
 ## Benchmarks
@@ -190,7 +193,7 @@ Vertices are 1-indexed.
 
 ## License
 
-This repository does not redistribute any solver or benchmark source code. All external code is downloaded at setup time via `git clone`. Each solver and benchmark set is subject to its own license:
+This repository does not redistribute any solver or benchmark source code. All external code is downloaded at setup time via `git clone`, except passagemath, which is installed from PyPI with `pip`. Each solver and benchmark set is subject to its own license:
 
 ### Solver Licenses
 
@@ -220,6 +223,7 @@ This repository does not redistribute any solver or benchmark source code. All e
 | libtw | LGPL-2.1 | [WPettersson/libtw](https://github.com/WPettersson/libtw) (mirror of treewidth.com) |
 | triangulator | MIT | [Laakeri/Triangulator](https://github.com/Laakeri/Triangulator) |
 | triangulator-msc | MIT | [Laakeri/triangulator-msc](https://github.com/Laakeri/triangulator-msc) |
+| passagemath | GPL-2.0-or-later | [passagemath/passagemath](https://github.com/passagemath/passagemath) (PyPI: [passagemath-graphs](https://pypi.org/project/passagemath-graphs/)) |
 | treedec | GPL-2.0 / GPL-3.0 (per file) | [freetdi/treedec](https://codeberg.org/freetdi/treedec) (mirror: [freetdi/tdlib](https://github.com/freetdi/tdlib)); gala headers GPL-3.0, [freetdi/gala](https://github.com/freetdi/gala) |
 
 ### Benchmark Licenses

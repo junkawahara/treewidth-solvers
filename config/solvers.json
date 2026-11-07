@@ -548,5 +548,29 @@
     "pace_year": null,
     "description": "treedec (tdlib) library driver tdecomp: --ex17 preprocessing + Tamaki exact, --ppfitm preprocessing + fill-in + triangulation minimisation heuristic (C++)",
     "notes": "The library behind tdlib-p17, at its 2025 head, driven through its example program examples/tdecomp, which reads a .gr on stdin and writes a .td. tdecomp is built only when configure finds the gala headers (freetdi/gala, GPL-3.0, header-only), so the first step clones gala at a pinned commit into the solver directory and configure gets -I for it; the fourth step fails loudly if configure still did not pick it up, since make would otherwise silently build nothing. Only the tdecomp target is built, together with the 'treedec' target of examples/Makefile.am, a symlink to src/ that <treedec/...> includes resolve through; 'make all' would create it as a built source, 'make tdecomp' alone does not. GCC 15 rejects two uninstantiated template bodies in src/tr_bag.h (-Wtemplate-body); -fpermissive turns them into warnings and is understood by older GCCs too, unlike -Wno-template-body. gala's incomplete() macro prints 'incomplete <file>:<line>' to stdout from fill_in_edges on every run, which the .td validator rejects as a malformed line; both gala's and treedec's definitions are guarded by #ifndef, so defining it as (void)0 on the command line silences it. The define is passed to make, not to configure: configure splits CPPFLAGS on whitespace without quote removal, so the parentheses reach the compiler with literal quotes and the 'C compiler works' check fails. tdecomp's reader takes every non-comment line as an edge and crashes on a blank line, and its gala graph has no self-loops, so 'u u' crashes it too; the runner therefore feeds it a simple-graph copy (input_format pace_gr_simple: comments, blank lines, self-loops and parallel edges dropped, edge count rewritten). Algorithm flags measured on named graphs: --ppfitm matched or beat --fi, --fitm, --bmd, --ppmd and --thorup everywhere, so it is the heuristic; --ex17 is preprocessing plus Tamaki's PID algorithm, i.e. the PACE 2017 exact entry rebuilt from the current library (tdlib-p17 runs the frozen 2017 submission). Other flags exist (--ta, --tr, --fi, --ppfi, --fitm, --bmd, --ppmd, --thorup, --pp); --he17 is compiled out and prints no decomposition. The heuristics finish on their own in well under a second; on SIGTERM the exact mode exits without a decomposition, which the runner records as a timeout. Single-threaded. examples/Makefile.am adds -march=native, so the binary is tied to the machine it was built on."
+  },
+  {
+    "name": "passagemath",
+    "type": "exact",
+    "language": "python",
+    "pip_constraints": "config/passagemath-constraints.txt",
+    "build_steps": [
+      "python3 -c 'import sys; sys.exit(\"passagemath needs Python 3.11 or newer\" if sys.version_info < (3, 11) else 0)'",
+      "rm -rf venv && python3 -m venv venv",
+      "venv/bin/pip install -q --disable-pip-version-check -c ../../config/passagemath-constraints.txt 'passagemath-graphs[cliquer]'",
+      "cp ../../config/passagemath_wrapper.py passagemath_wrapper.py",
+      "venv/bin/python -I passagemath_wrapper.py ../../tests/k4.gr | head -1 | grep -qx 's td 1 4 4'"
+    ],
+    "tools": [
+      "gcc"
+    ],
+    "run_command": "venv/bin/python -I passagemath_wrapper.py {input}",
+    "run_mode": "file",
+    "input_format": "pace_gr",
+    "output_format": "pace_td",
+    "authors": "The Sage Developers (passagemath: Matthias Koeppe)",
+    "pace_year": null,
+    "description": "SageMath's exact treewidth, Graph.treewidth(algorithm='sage'), via the pip-installable passagemath-graphs (Python/Cython)",
+    "notes": "passagemath ships parts of the Sage library as pip wheels, so there is no repository to clone: the solver directory only holds a venv (about 430 MB, 108 MB downloaded) and the wrapper config/passagemath_wrapper.py. Every package is pinned by config/passagemath-constraints.txt; the venv is recreated on each setup run (pip's cache makes that quick). The cliquer extra is required, because treewidth() calls clique_number(), which imports sage.graphs.cliquer and fails without it. memory_allocator has no wheel and is compiled from its sdist, which needs gcc and the Python headers (python3-dev). The 'sage' algorithm decides treewidth <= k for increasing k by dynamic programming over pairs of a cut of at most k+1 vertices and a component of the rest; it is named explicitly because the default switches to tdlib when passagemath-tdlib is present, and tdlib is what tdlib-p17 and treedec already run. It is far slower than the PACE solvers (BrinkmannGraph 50 s and CoxeterGraph 119 s, where tamaki-2017 needs 0.3 s), but finishes small graphs instantly; Python start-up and the Sage import add about 0.3 s per run. The wrapper parses the .gr itself (comments, blank lines, self-loops and parallel edges are dropped; isolated vertices kept) and stops on SIGTERM without output, which the runner records as a timeout. The last build step runs the wrapper on tests/k4.gr, so an install that imports but cannot compute fails the build instead of every run."
   }
 ]

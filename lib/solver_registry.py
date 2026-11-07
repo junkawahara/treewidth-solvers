@@ -61,6 +61,9 @@ LANGUAGE_TOOLS = {
     # cargo drives rustc; the .NET SDK's dotnet both builds and runs C#.
     "rust": ["cargo"],
     "csharp": ["dotnet"],
+    # Python solvers live in a venv under the solver directory, created and
+    # filled by their build steps with the system python3.
+    "python": ["python3"],
 }
 
 
@@ -106,6 +109,14 @@ def download_solver(solver):
     name = solver["name"]
     dest = solver_dir(name)
     commit = solver.get("commit")
+    if not solver.get("repo"):
+        # Nothing to clone: the build steps fetch the solver themselves
+        # (passagemath is a set of pip wheels, pinned by a constraints file
+        # in config/). Only the directory is made; an existing one, and
+        # whatever the build left in it, is kept.
+        dest.mkdir(parents=True, exist_ok=True)
+        (dest / DOWNLOAD_MARKER).write_text("ok\n")
+        return True
     if dest.exists():
         if (dest / DOWNLOAD_MARKER).exists():
             print(f"  [{name}] Already downloaded, skipping clone")
