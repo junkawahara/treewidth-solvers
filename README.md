@@ -14,7 +14,7 @@ Required:
 
 Per-solver dependencies:
 - **Java solvers** (twalgor-tw, twalgor-rtw, tamaki-2017, jdrasil, turbocharge-2016, libtw): JDK 8+
-- **C/C++ solvers** (tamaki-2016, tdlib-p17, flowcutter-17, flowcutter-16, htd, minfill-mrs, minfillbg-mrs, cvo2, foxepstein-2016, iitm-2016): GCC 7+ (g++ with C++17 support) and `make`
+- **C/C++ solvers** (tamaki-2016, tdlib-p17, flowcutter-17, flowcutter-16, htd, minfill-mrs, minfillbg-mrs, cvo2, foxepstein-2016, iitm-2016, triangulator): GCC 7+ (g++ with C++17 support) and `make`
   - **tdlib-p17** needs C++17 (the build inserts an inline variable), Boost, autotools and libtool (`sudo apt install libboost-graph-dev libboost-thread-dev autoconf automake libtool` on Debian/Ubuntu)
   - **htd** and **cvo2** require CMake (`sudo apt install cmake` on Debian/Ubuntu)
 - **QuickBB**: g++ with C++11 support, autotools (autoconf, automake)
@@ -93,6 +93,7 @@ Results are appended to the CSV as each run finishes, so an interrupted run (Ctr
 | arboretum | Johannes Meintrup | Rust | Positive-instance-driven DP with safe separators; also a tabu-search heuristic |
 | cliquetrees-jl | Richard Samuelson | Julia | CliqueTrees.jl: PIDBT with safe rules/separators; also a min-fill heuristic |
 | libtw | van Dijk, van den Heuvel, Slob | Java | LibTW (2006): subset DP; also a greedy fill-in heuristic |
+| triangulator | Tuukka Korhonen | C++ | Triangulator: Bouchitte-Todinca DP over enumerated potential maximal cliques (PACE 2017 minimum fill-in track, 2nd place) |
 
 ### Heuristic Solvers
 
@@ -212,6 +213,7 @@ This repository does not redistribute any solver or benchmark source code. All e
 | goatd | Apache-2.0 | [Tractables/goatd](https://github.com/Tractables/goatd) |
 | cliquetrees-jl | MIT | [AlgebraicJulia/CliqueTrees.jl](https://github.com/AlgebraicJulia/CliqueTrees.jl) |
 | libtw | LGPL-2.1 | [WPettersson/libtw](https://github.com/WPettersson/libtw) (mirror of treewidth.com) |
+| triangulator | MIT | [Laakeri/Triangulator](https://github.com/Laakeri/Triangulator) |
 
 ### Benchmark Licenses
 

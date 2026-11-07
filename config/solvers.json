@@ -471,5 +471,26 @@
     "pace_year": null,
     "description": "LibTW (treewidth.com, 2006): subset dynamic programming exact algorithm, greedy fill-in heuristic (Java)",
     "notes": "LibTW is a library without a PACE front end, so config/LibtwRunner.java reads the .gr file and prints 'c width <w>' (no bags, so --validate cannot check it). Exact mode runs TreewidthDP seeded with the greedy fill-in bound; it holds every subset of vertices and only finishes on small graphs. 'quickbb' selects LibTW's Java port of QuickBB instead. The GitHub mirror is the treewidth.com release with small fixes."
+  },
+  {
+    "name": "triangulator",
+    "type": "exact",
+    "language": "cpp",
+    "repo": "https://github.com/Laakeri/Triangulator.git",
+    "commit": "828b13ee7f57efecda670747704b5de5dcfc140d",
+    "build_steps": [
+      "make"
+    ],
+    "tools": [
+      "make"
+    ],
+    "run_command": "./main -treewidth < {input}",
+    "run_mode": "stdin_stdout",
+    "input_format": "pace_gr",
+    "output_format": "pace_td",
+    "authors": "Tuukka Korhonen",
+    "pace_year": null,
+    "description": "Triangulator: Bouchitte-Todinca algorithm over enumerated potential maximal cliques (C++)",
+    "notes": "Exact Bouchitte-Todinca dynamic programming over all potential maximal cliques, listed with the Bouchitte-Todinca enumeration; the same code base placed second in the PACE 2017 minimum fill-in track. -treewidth reads a PACE .gr from stdin and writes the decomposition ('s td' header, bags, tree edges) to stdout; the optimal width, fill edge count and time go to stderr. Disconnected and edgeless graphs come out as a single tree. Builds with the top-level Makefile (plain C++11, no extra libraries). The author notes that Laakeri/triangulator-msc is faster, but that build links CPLEX and MaxHS unconditionally, so this version is used."
   }
 ]
