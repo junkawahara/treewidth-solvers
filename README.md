@@ -14,7 +14,8 @@ Required:
 
 Per-solver dependencies:
 - **Java solvers** (twalgor-tw, twalgor-rtw, tamaki-2017, jdrasil, turbocharge-2016, libtw): JDK 8+
-- **C/C++ solvers** (tamaki-2016, tdlib-p17, flowcutter-17, flowcutter-16, htd, minfill-mrs, minfillbg-mrs, cvo2, foxepstein-2016, iitm-2016, triangulator, triangulator-msc): GCC 7+ (g++ with C++17 support) and `make`
+- **C/C++ solvers** (tamaki-2016, tdlib-p17, flowcutter-17, flowcutter-16, htd, minfill-mrs, minfillbg-mrs, cvo2, foxepstein-2016, iitm-2016, triangulator, triangulator-msc, treedec): GCC 7+ (g++ with C++17 support) and `make`
+  - **treedec** needs Boost (graph and thread), autotools, libtool and Git (`sudo apt install libboost-graph-dev libboost-thread-dev autoconf automake libtool` on Debian/Ubuntu); its gala header dependency is cloned by the build
   - **tdlib-p17** needs C++17 (the build inserts an inline variable), Boost, autotools and libtool (`sudo apt install libboost-graph-dev libboost-thread-dev autoconf automake libtool` on Debian/Ubuntu)
   - **htd** and **cvo2** require CMake (`sudo apt install cmake` on Debian/Ubuntu)
 - **QuickBB**: g++ with C++11 support, autotools (autoconf, automake)
@@ -95,6 +96,7 @@ Results are appended to the CSV as each run finishes, so an interrupted run (Ctr
 | libtw | van Dijk, van den Heuvel, Slob | Java | LibTW (2006): subset DP; also a greedy fill-in heuristic |
 | triangulator | Tuukka Korhonen | C++ | Triangulator: Bouchitte-Todinca DP over enumerated potential maximal cliques (PACE 2017 minimum fill-in track, 2nd place) |
 | triangulator-msc | Tuukka Korhonen | C++ | Triangulator, 2020 thesis version: same algorithm with preprocessing and a faster PMC enumerator; built without CPLEX/MaxHS (see `config/triangulator-msc-no-cplex.patch`) |
+| treedec | Larisch, Salfelder | C++ | treedec (tdlib) at its 2025 head, via its `tdecomp` driver: `--ex17` preprocessing + Tamaki exact; also `--ppfitm` preprocessing + fill-in + triangulation minimisation heuristic |
 
 ### Heuristic Solvers
 
@@ -111,7 +113,7 @@ Results are appended to the CSV as each run finishes, so an interrupted run (Ctr
 | iitm-2016 | Joglekar, Kamble, Pandian | C++ | Chordal completion by cycle elimination (PACE 2016 heuristic track, 6th place) |
 | goatd | Guy Van den Broeck | Rust | Portfolio of elimination orders, nested dissection and FlowCutter under one budget (2026) |
 
-**Note**: tamaki-2017, tdlib-p17, jdrasil, arboretum, cliquetrees-jl and libtw support both exact and heuristic modes.
+**Note**: tamaki-2017, tdlib-p17, jdrasil, arboretum, cliquetrees-jl, libtw and treedec support both exact and heuristic modes.
 
 Solver-specific details (source patches a build needs, which upstream variant is built, output quirks) are recorded in the `notes` field of each entry in `config/solvers.json`. Points worth knowing before reading results:
 
@@ -119,6 +121,7 @@ Solver-specific details (source patches a build needs, which upstream variant is
 - **iitm-2016** answers SIGTERM with a trivial one-bag decomposition until its first chordal completion finishes, which takes over a minute on PACE 2017 instances, so short timeouts record width n-1.
 - **libtw** and **quickbb** print only the width, not the bags, so `--validate` cannot check them. libtw's exact algorithm stores every vertex subset and finishes only on small graphs.
 - **triangulator-msc** upstream prints only the width; the patch in `config/` adds the `.td` output and drops the CPLEX/MaxHS-dependent modes (hypertree width, MaxSAT phylogeny), which the runner does not use.
+- **treedec** is fed a simple-graph copy of each instance (self-loops, parallel edges, comments and blank lines removed), because its reader crashes on blank lines and self-loops; the transit graphs contain both self-loops and comments. Its exact mode is the PACE 2017 approach rebuilt from the current library, so compare it with tdlib-p17, which runs the frozen 2017 submission.
 - **bz-treewidth** builds the `BZTreewidth-DP` variant (the first in the upstream Makefile) with the .NET SDK instead of Mono; the other eleven variants are preprocessor symbols.
 
 ## Benchmarks
@@ -217,6 +220,7 @@ This repository does not redistribute any solver or benchmark source code. All e
 | libtw | LGPL-2.1 | [WPettersson/libtw](https://github.com/WPettersson/libtw) (mirror of treewidth.com) |
 | triangulator | MIT | [Laakeri/Triangulator](https://github.com/Laakeri/Triangulator) |
 | triangulator-msc | MIT | [Laakeri/triangulator-msc](https://github.com/Laakeri/triangulator-msc) |
+| treedec | GPL-2.0 / GPL-3.0 (per file) | [freetdi/treedec](https://codeberg.org/freetdi/treedec) (mirror: [freetdi/tdlib](https://github.com/freetdi/tdlib)); gala headers GPL-3.0, [freetdi/gala](https://github.com/freetdi/gala) |
 
 ### Benchmark Licenses
 

@@ -14,7 +14,8 @@
 
 ソルバーごとの依存:
 - **Java ソルバー** (twalgor-tw, twalgor-rtw, tamaki-2017, jdrasil, turbocharge-2016, libtw): JDK 8+
-- **C/C++ ソルバー** (tamaki-2016, tdlib-p17, flowcutter-17, flowcutter-16, htd, minfill-mrs, minfillbg-mrs, cvo2, foxepstein-2016, iitm-2016, triangulator, triangulator-msc): GCC 7+（C++17 対応の g++）と `make`
+- **C/C++ ソルバー** (tamaki-2016, tdlib-p17, flowcutter-17, flowcutter-16, htd, minfill-mrs, minfillbg-mrs, cvo2, foxepstein-2016, iitm-2016, triangulator, triangulator-msc, treedec): GCC 7+（C++17 対応の g++）と `make`
+  - **treedec** は Boost（graph と thread）、autotools、libtool、Git が必要（Debian/Ubuntu では `sudo apt install libboost-graph-dev libboost-thread-dev autoconf automake libtool`）。依存する gala ヘッダはビルド時に clone します
   - **tdlib-p17** は C++17（ビルド時にインライン変数を挿入します）、Boost、autotools、libtool が必要です（Debian/Ubuntu: `sudo apt install libboost-graph-dev libboost-thread-dev autoconf automake libtool`）
   - **htd** と **cvo2** は CMake が必要です（Debian/Ubuntu: `sudo apt install cmake`）
 - **QuickBB**: C++11 対応の g++、autotools (autoconf, automake)
@@ -95,6 +96,7 @@ python run.py --solver all --benchmark all --timeout 60 --max-instances 5
 | libtw | van Dijk, van den Heuvel, Slob | Java | LibTW (2006): 部分集合 DP。greedy fill-in ヒューリスティックも持つ |
 | triangulator | Tuukka Korhonen | C++ | Triangulator: 列挙した potential maximal clique 上の Bouchitte-Todinca DP（PACE 2017 minimum fill-in track 2 位） |
 | triangulator-msc | Tuukka Korhonen | C++ | Triangulator の 2020 年修士論文版。同じアルゴリズムに前処理と高速な PMC 列挙を加えたもの。CPLEX/MaxHS 抜きでビルド（`config/triangulator-msc-no-cplex.patch`） |
+| treedec | Larisch, Salfelder | C++ | treedec (tdlib) の 2025 年版を `tdecomp` ドライバ経由で実行。`--ex17` は前処理 + Tamaki 厳密法。`--ppfitm`（前処理 + fill-in + 三角化最小化）ヒューリスティックも持つ |
 
 ### ヒューリスティックソルバー (Heuristic)
 
@@ -111,7 +113,7 @@ python run.py --solver all --benchmark all --timeout 60 --max-instances 5
 | iitm-2016 | Joglekar, Kamble, Pandian | C++ | サイクル除去による弦グラフ化（PACE 2016 heuristic track 6 位） |
 | goatd | Guy Van den Broeck | Rust | 消去順序・nested dissection・FlowCutter を一つの時間予算で回すポートフォリオ (2026) |
 
-**注**: tamaki-2017, tdlib-p17, jdrasil, arboretum, cliquetrees-jl, libtw は exact と heuristic の両方に対応しています。
+**注**: tamaki-2017, tdlib-p17, jdrasil, arboretum, cliquetrees-jl, libtw, treedec は exact と heuristic の両方に対応しています。
 
 ソルバー固有の事情（ビルドに必要なソースの修正、どの上流バリアントをビルドしているか、出力の癖）は `config/solvers.json` の各エントリの `notes` に記録しています。結果を読む前に知っておくべき点:
 
@@ -119,6 +121,7 @@ python run.py --solver all --benchmark all --timeout 60 --max-instances 5
 - **iitm-2016** は最初の弦グラフ化が終わるまで SIGTERM に対して自明な 1 バッグ分解を返します。PACE 2017 インスタンスでは 1 分以上かかるため、短いタイムアウトでは幅 n-1 が記録されます。
 - **libtw** と **quickbb** は幅だけを出力しバッグを出さないので、`--validate` では検証できません。libtw の厳密アルゴリズムは全頂点部分集合を保持するため、小さいグラフでしか終わりません。
 - **triangulator-msc** の上流は幅しか出力しません。`config/` のパッチで `.td` 出力を追加し、runner が使わない CPLEX/MaxHS 依存のモード（ハイパー木幅、MaxSAT による系統解析）を外しています。
+- **treedec** には各インスタンスの単純グラフ化コピー（自己ループ・多重辺・コメント・空行を除去）を渡します。リーダーが空行と自己ループで落ちるためで、transit-graphs には自己ループとコメントの両方が含まれます。exact モードは PACE 2017 の方式を現行ライブラリで組み直したものなので、2017 年当時の提出物をそのまま動かす tdlib-p17 と比較してください。
 - **bz-treewidth** は上流 Makefile の先頭にある `BZTreewidth-DP` バリアントを Mono ではなく .NET SDK でビルドします。残り 11 バリアントはプリプロセッサシンボルの違いです。
 
 ## ベンチマーク一覧
@@ -217,6 +220,7 @@ p tw <頂点数> <辺数>
 | libtw | LGPL-2.1 | [WPettersson/libtw](https://github.com/WPettersson/libtw)（treewidth.com のミラー） |
 | triangulator | MIT | [Laakeri/Triangulator](https://github.com/Laakeri/Triangulator) |
 | triangulator-msc | MIT | [Laakeri/triangulator-msc](https://github.com/Laakeri/triangulator-msc) |
+| treedec | GPL-2.0 / GPL-3.0（ファイルごと） | [freetdi/treedec](https://codeberg.org/freetdi/treedec)（ミラー: [freetdi/tdlib](https://github.com/freetdi/tdlib)）。gala ヘッダは GPL-3.0、[freetdi/gala](https://github.com/freetdi/gala) |
 
 ### ベンチマークのライセンス
 

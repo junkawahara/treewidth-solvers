@@ -126,6 +126,33 @@ def pace_gr_to_quickbb_cnf(input_path, output_path):
     return output_path
 
 
+def pace_gr_to_simple_gr(input_path, output_path):
+    """Write a PACE .gr copy that holds only the simple graph underneath.
+
+    Comment lines, blank lines, self-loops and parallel edges (u v / v u, or
+    repeated lines) are dropped, and the "p tw" line is rewritten with the
+    number of edges actually written. None of this changes the treewidth,
+    but some solvers' readers assume a strict file: tdecomp (treedec) reads
+    every non-comment line as an edge and crashes on a blank one, and its
+    graph type has no self-loops, so "u u" crashes it as well. PACE
+    instances do contain self-loops (the transit graphs, in over a thousand
+    files) and may end in a blank line.
+    """
+    unique = set()
+
+    def collect(u, v):
+        if u != v:
+            unique.add((min(u, v), max(u, v)))
+
+    n, _ = _scan_pace_gr(input_path, collect)
+    edges = sorted(unique)
+    with open(output_path, "w") as f:
+        f.write(f"p tw {n} {len(edges)}\n")
+        for u, v in edges:
+            f.write(f"{u} {v}\n")
+    return output_path
+
+
 def get_graph_info(filepath):
     """Get basic graph statistics from a .gr file without storing its edges."""
     n, m = _scan_pace_gr(filepath)

@@ -15,6 +15,7 @@ from lib.format_converter import (  # noqa: E402
     get_graph_info,
     max_bag_size,
     pace_gr_to_quickbb_cnf,
+    pace_gr_to_simple_gr,
     parse_quickbb_stat,
     parse_td_output,
     read_pace_gr,
@@ -162,6 +163,48 @@ def test_quickbb_cnf_conversion_drops_self_loops_and_parallel_edges(tmp_path):
     pace_gr_to_quickbb_cnf(str(gr), str(out))
     lines = out.read_text().strip().splitlines()
     assert lines == ["p cnf 3 2", "1 2 0", "2 3 0"]
+
+
+def test_simple_gr_conversion_keeps_a_simple_graph_as_is(tmp_path):
+    out = tmp_path / "k4.gr"
+    pace_gr_to_simple_gr(_gr("k4.gr"), str(out))
+    lines = out.read_text().splitlines()
+    assert lines[0] == "p tw 4 6"
+    assert len(lines) == 7
+    assert sorted(lines[1:]) == sorted(
+        f"{u} {v}" for u in range(1, 5) for v in range(u + 1, 5))
+
+
+def test_simple_gr_conversion_drops_loops_duplicates_comments_and_blanks(tmp_path):
+    gr = tmp_path / "multi.gr"
+    # A comment, a self-loop on 1, edge 1-2 given three ways, 2-3, and a
+    # trailing blank line: the simple graph underneath has two edges.
+    gr.write_text("c made up\np tw 3 5\n1 1\n1 2\n2 1\n1 2\n2 3\n\n")
+    out = tmp_path / "multi-simple.gr"
+    pace_gr_to_simple_gr(str(gr), str(out))
+    assert out.read_text() == "p tw 3 2\n1 2\n2 3\n"
+
+
+def test_run_solver_feeds_the_simple_copy_to_a_pace_gr_simple_solver(tmp_path):
+    """A pace_gr_simple solver must see the cleaned copy on stdin, not the
+    original file (a stdin-mode solver would otherwise get the raw file)."""
+    gr = tmp_path / "loop.gr"
+    gr.write_text("p tw 2 2\n1 1\n1 2\n")
+    fake = {
+        "name": "fake", "type": "exact", "language": "c",
+        "run_command": "cat", "run_mode": "stdin_stdout",
+        "input_format": "pace_gr_simple", "output_format": "pace_td",
+    }
+    orig_get, orig_dir = runner.get_solver, runner.solver_dir
+    runner.get_solver = lambda name: fake
+    runner.solver_dir = lambda name: tmp_path
+    try:
+        r = runner.run_solver("fake", str(gr), timeout=5, debug=True)
+    finally:
+        runner.get_solver, runner.solver_dir = orig_get, orig_dir
+    # "cat" echoes the cleaned .gr, which is not a decomposition.
+    assert r["status"] == "parse_error"
+    assert r["_debug"]["stdout_raw"] == "p tw 2 1\n1 2\n"
 
 
 def test_parse_td_output_formats():

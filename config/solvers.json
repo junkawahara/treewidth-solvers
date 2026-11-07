@@ -514,5 +514,39 @@
     "pace_year": null,
     "description": "Triangulator (2020 master's thesis version): Bouchitte-Todinca algorithm with preprocessing and a faster potential maximal clique enumerator (C++)",
     "notes": "The successor of triangulator, which the author reports it outperforms. Upstream links CPLEX and MaxHS unconditionally and, in tw mode, prints only 'Treewidth: <w>' to stderr without the decomposition. config/triangulator-msc-no-cplex.patch removes the CPLEX/MaxHS objects (ghtw, ftw, hypercost, maxhs_iface, the CharRemoveMaxSat and BuildColorMaxSAT functions) from the Makefile and sources, and adds a PACE .td writer to main.cpp: bags are the vertices of a perfect elimination order of the returned chordal graph with their later neighbours, and the parent of a bag is the bag of the earliest later neighbour. The patch also reads stdin before parsing so that comment lines (which the upstream reader would take as edges when they have two tokens), blank lines (which trip an assert) and self-loops (another assert) are dropped, and so that isolated vertices, which the upstream reader never sees, get bags of their own from the header's vertex count. Logging is left at upstream's default, so stderr carries a few progress lines per run. Built with -march=native, so the binary is tied to the machine it was built on."
+  },
+  {
+    "name": "treedec",
+    "type": "both",
+    "language": "cpp",
+    "repo": "https://codeberg.org/freetdi/treedec.git",
+    "commit": "b3a72b93342521c260837539adbcb4af90106430",
+    "build_steps": [
+      "test -f gala/graph.h || (rm -rf gala && git init -q gala && git -C gala fetch -q --depth 1 https://github.com/freetdi/gala.git 875bd2a939cce6c32768369b1383752ec5aab77d && git -C gala checkout -q FETCH_HEAD)",
+      "./bootstrap",
+      "mkdir -p build && cd build && ../configure --without-python CPPFLAGS=\"-DNDEBUG -I$PWD/..\" CXXFLAGS=\"-g -O2 -fpermissive\"",
+      "grep -q 'define HAVE_GALA_GRAPH_H 1' build/config.h",
+      "make -C build/examples treedec tdecomp CPPFLAGS=\"-DNDEBUG -I$PWD '-Dincomplete()=(void)0'\""
+    ],
+    "tools": [
+      "make",
+      "git",
+      "autoconf",
+      "automake",
+      "libtoolize"
+    ],
+    "headers": [
+      "boost/graph/adjacency_list.hpp",
+      "boost/thread.hpp"
+    ],
+    "run_command": "./build/examples/tdecomp --ex17 < {input}",
+    "run_command_heuristic": "./build/examples/tdecomp --ppfitm < {input}",
+    "run_mode": "stdin_stdout_signal",
+    "input_format": "pace_gr_simple",
+    "output_format": "pace_td",
+    "authors": "Lukas Larisch, Felix Salfelder",
+    "pace_year": null,
+    "description": "treedec (tdlib) library driver tdecomp: --ex17 preprocessing + Tamaki exact, --ppfitm preprocessing + fill-in + triangulation minimisation heuristic (C++)",
+    "notes": "The library behind tdlib-p17, at its 2025 head, driven through its example program examples/tdecomp, which reads a .gr on stdin and writes a .td. tdecomp is built only when configure finds the gala headers (freetdi/gala, GPL-3.0, header-only), so the first step clones gala at a pinned commit into the solver directory and configure gets -I for it; the fourth step fails loudly if configure still did not pick it up, since make would otherwise silently build nothing. Only the tdecomp target is built, together with the 'treedec' target of examples/Makefile.am, a symlink to src/ that <treedec/...> includes resolve through; 'make all' would create it as a built source, 'make tdecomp' alone does not. GCC 15 rejects two uninstantiated template bodies in src/tr_bag.h (-Wtemplate-body); -fpermissive turns them into warnings and is understood by older GCCs too, unlike -Wno-template-body. gala's incomplete() macro prints 'incomplete <file>:<line>' to stdout from fill_in_edges on every run, which the .td validator rejects as a malformed line; both gala's and treedec's definitions are guarded by #ifndef, so defining it as (void)0 on the command line silences it. The define is passed to make, not to configure: configure splits CPPFLAGS on whitespace without quote removal, so the parentheses reach the compiler with literal quotes and the 'C compiler works' check fails. tdecomp's reader takes every non-comment line as an edge and crashes on a blank line, and its gala graph has no self-loops, so 'u u' crashes it too; the runner therefore feeds it a simple-graph copy (input_format pace_gr_simple: comments, blank lines, self-loops and parallel edges dropped, edge count rewritten). Algorithm flags measured on named graphs: --ppfitm matched or beat --fi, --fitm, --bmd, --ppmd and --thorup everywhere, so it is the heuristic; --ex17 is preprocessing plus Tamaki's PID algorithm, i.e. the PACE 2017 exact entry rebuilt from the current library (tdlib-p17 runs the frozen 2017 submission). Other flags exist (--ta, --tr, --fi, --ppfi, --fitm, --bmd, --ppmd, --thorup, --pp); --he17 is compiled out and prints no decomposition. The heuristics finish on their own in well under a second; on SIGTERM the exact mode exits without a decomposition, which the runner records as a timeout. Single-threaded. examples/Makefile.am adds -march=native, so the binary is tied to the machine it was built on."
   }
 ]

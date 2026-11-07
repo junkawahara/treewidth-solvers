@@ -15,6 +15,7 @@ from lib.format_converter import (
     get_graph_info,
     max_bag_size,
     pace_gr_to_quickbb_cnf,
+    pace_gr_to_simple_gr,
     parse_quickbb_stat,
     parse_td_output,
 )
@@ -393,6 +394,10 @@ def run_solver(
             cnf_path = os.path.join(work_dir, iname + ".cnf")
             pace_gr_to_quickbb_cnf(input_path, cnf_path)
             converted_input = cnf_path
+        elif solver.get("input_format") == "pace_gr_simple":
+            simple_path = os.path.join(work_dir, iname + ".gr")
+            pace_gr_to_simple_gr(input_path, simple_path)
+            converted_input = simple_path
 
         td_path = os.path.join(work_dir, iname + ".td")
         # Side file for solvers that report run statistics separately from
