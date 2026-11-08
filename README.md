@@ -14,7 +14,7 @@ Required:
 
 Per-solver dependencies:
 - **Java solvers** (twalgor-tw, twalgor-rtw, tamaki-2017, jdrasil, turbocharge-2016, libtw): JDK 8+
-- **C/C++ solvers** (tamaki-2016, tdlib-p17, flowcutter-17, flowcutter-16, htd, minfill-mrs, minfillbg-mrs, cvo2, foxepstein-2016, iitm-2016, triangulator, triangulator-msc, treedec, halin-tw): GCC 7+ (g++ with C++17 support) and `make`
+- **C/C++ solvers** (tamaki-2016, tdlib-p17, flowcutter-17, flowcutter-16, htd, minfill-mrs, minfillbg-mrs, cvo2, foxepstein-2016, iitm-2016, triangulator, triangulator-msc, treedec, halin-tw, bfk-treewidth-2approx): GCC 7+ (g++ with C++17 support) and `make`
   - **treedec** needs Boost (graph and thread), autotools, libtool and Git (`sudo apt install libboost-graph-dev libboost-thread-dev autoconf automake libtool` on Debian/Ubuntu); its gala header dependency is cloned by the build
   - **tdlib-p17** needs C++17 (the build inserts an inline variable), Boost, autotools and libtool (`sudo apt install libboost-graph-dev libboost-thread-dev autoconf automake libtool` on Debian/Ubuntu)
   - **htd** and **cvo2** require CMake (`sudo apt install cmake` on Debian/Ubuntu)
@@ -115,6 +115,7 @@ Results are appended to the CSV as each run finishes, so an interrupted run (Ctr
 | turbocharge-2016 | Gaspers et al. | Java | Turbocharging greedy heuristics (PACE 2016 heuristic track, 4th place) |
 | iitm-2016 | Joglekar, Kamble, Pandian | C++ | Chordal completion by cycle elimination (PACE 2016 heuristic track, 6th place) |
 | goatd | Guy Van den Broeck | Rust | Portfolio of elimination orders, nested dissection and FlowCutter under one budget (2026) |
+| bfk-treewidth-2approx | Jun Kawahara | C++ | The optimized 2-approximation of Belbasi, Fürer and Kumar (2024): dynamic programming over a grouped tree decomposition that splits the bags of a min-degree decomposition, giving width ≤ 2·tw+1; the DP fits in memory only when the min-degree width is small (at most 14 on the benchmarks) |
 
 **Note**: tamaki-2017, tdlib-p17, jdrasil, arboretum, cliquetrees-jl, libtw and treedec support both exact and heuristic modes.
 
@@ -127,6 +128,7 @@ Solver-specific details (source patches a build needs, which upstream variant is
 - **treedec** is fed a simple-graph copy of each instance (self-loops, parallel edges, comments and blank lines removed), because its reader crashes on blank lines and self-loops; the transit graphs contain both self-loops and comments. Its exact mode is the PACE 2017 approach rebuilt from the current library, so compare it with tdlib-p17, which runs the frozen 2017 submission.
 - **passagemath** runs Sage's own algorithm, not tdlib (which Sage would pick if passagemath-tdlib were installed, and which tdlib-p17 and treedec already cover). It is far slower than the PACE solvers on anything but small graphs: BrinkmannGraph takes 50 s and CoxeterGraph 119 s, where tamaki-2017 needs 0.3 s.
 - **halin-tw** solves only Halin graphs, in linear time, and declines every other graph (exit code 2, recorded as `not_applicable`). Of the 6036 benchmark instances it accepts 9 (FruchtGraph, TetrahedralGraph, the two WheelGraph_100 copies and five 5-vertex wheels among the transit graphs), all of treewidth 3; an independent planarity-based check finds the same 9. Its `ok` rows are therefore few, and its `not_applicable` rows are not failures.
+- **bfk-treewidth-2approx** always answers with width ≤ 2·tw+1, but gets there by dynamic programming over tables of 3^|bag| or 4^|bag| entries per node, so it can only improve graphs whose min-degree decomposition is narrow: on the benchmarks the widest one it improved had width 14, and every exit 3 below outside the road graphs had width 14 or more (the upstream README puts the limit at about 16). When the tables would exceed its 24 GB limit (`--mem-gb`) it stops and exits 3, recorded as `error: exit 3`: the solver giving up, not a crash. When the min-degree width is already ≤ 2·degeneracy+1 it outputs that decomposition without any DP. On all eight benchmark sets (6036 instances, 60 s, `--validate`) 4636 runs were `ok` (all valid), but only 30 of them are narrower than the min-degree decomposition; 1252 ended with exit 3 and 148 timed out. A single run can take close to 24 GB (22.9 GB observed), so allow that much per job with `--jobs`.
 - **bz-treewidth** builds the `BZTreewidth-DP` variant (the first in the upstream Makefile) with the .NET SDK instead of Mono; the other eleven variants are preprocessor symbols.
 
 ## Benchmarks
@@ -229,6 +231,7 @@ This repository does not redistribute any solver or benchmark source code. All e
 | passagemath | GPL-2.0-or-later | [passagemath/passagemath](https://github.com/passagemath/passagemath) (PyPI: [passagemath-graphs](https://pypi.org/project/passagemath-graphs/)) |
 | treedec | GPL-2.0 / GPL-3.0 (per file) | [freetdi/treedec](https://codeberg.org/freetdi/treedec) (mirror: [freetdi/tdlib](https://github.com/freetdi/tdlib)); gala headers GPL-3.0, [freetdi/gala](https://github.com/freetdi/gala) |
 | halin-tw | MIT | [junkawahara/halin_tw](https://github.com/junkawahara/halin_tw) |
+| bfk-treewidth-2approx | MIT | [junkawahara/bfk-treewidth-2approx](https://github.com/junkawahara/bfk-treewidth-2approx) |
 
 ### Benchmark Licenses
 

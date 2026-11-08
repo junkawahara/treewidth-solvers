@@ -14,7 +14,7 @@
 
 ソルバーごとの依存:
 - **Java ソルバー** (twalgor-tw, twalgor-rtw, tamaki-2017, jdrasil, turbocharge-2016, libtw): JDK 8+
-- **C/C++ ソルバー** (tamaki-2016, tdlib-p17, flowcutter-17, flowcutter-16, htd, minfill-mrs, minfillbg-mrs, cvo2, foxepstein-2016, iitm-2016, triangulator, triangulator-msc, treedec, halin-tw): GCC 7+（C++17 対応の g++）と `make`
+- **C/C++ ソルバー** (tamaki-2016, tdlib-p17, flowcutter-17, flowcutter-16, htd, minfill-mrs, minfillbg-mrs, cvo2, foxepstein-2016, iitm-2016, triangulator, triangulator-msc, treedec, halin-tw, bfk-treewidth-2approx): GCC 7+（C++17 対応の g++）と `make`
   - **treedec** は Boost（graph と thread）、autotools、libtool、Git が必要（Debian/Ubuntu では `sudo apt install libboost-graph-dev libboost-thread-dev autoconf automake libtool`）。依存する gala ヘッダはビルド時に clone します
   - **tdlib-p17** は C++17（ビルド時にインライン変数を挿入します）、Boost、autotools、libtool が必要です（Debian/Ubuntu: `sudo apt install libboost-graph-dev libboost-thread-dev autoconf automake libtool`）
   - **htd** と **cvo2** は CMake が必要です（Debian/Ubuntu: `sudo apt install cmake`）
@@ -115,6 +115,7 @@ python run.py --solver all --benchmark all --timeout 60 --max-instances 5
 | turbocharge-2016 | Gaspers et al. | Java | 貪欲ヒューリスティックの turbocharging（PACE 2016 heuristic track 4 位） |
 | iitm-2016 | Joglekar, Kamble, Pandian | C++ | サイクル除去による弦グラフ化（PACE 2016 heuristic track 6 位） |
 | goatd | Guy Van den Broeck | Rust | 消去順序・nested dissection・FlowCutter を一つの時間予算で回すポートフォリオ (2026) |
+| bfk-treewidth-2approx | Jun Kawahara | C++ | Belbasi, Fürer, Kumar (2024) の最適化 2 近似。min-degree の木分解のバッグを、グループ化した木分解上の DP で分割して幅 2·tw+1 以下にする。DP がメモリに収まるのは min-degree の幅が小さいとき（ベンチマークでは 14 以下）だけ |
 
 **注**: tamaki-2017, tdlib-p17, jdrasil, arboretum, cliquetrees-jl, libtw, treedec は exact と heuristic の両方に対応しています。
 
@@ -127,6 +128,7 @@ python run.py --solver all --benchmark all --timeout 60 --max-instances 5
 - **treedec** には各インスタンスの単純グラフ化コピー（自己ループ・多重辺・コメント・空行を除去）を渡します。リーダーが空行と自己ループで落ちるためで、transit-graphs には自己ループとコメントの両方が含まれます。exact モードは PACE 2017 の方式を現行ライブラリで組み直したものなので、2017 年当時の提出物をそのまま動かす tdlib-p17 と比較してください。
 - **passagemath** は tdlib ではなく Sage 自前のアルゴリズムを使います（passagemath-tdlib があると Sage は tdlib を選びますが、それは tdlib-p17 と treedec で既にカバーしています）。小さなグラフ以外では PACE のソルバーよりずっと遅く、tamaki-2017 が 0.3 秒で解く BrinkmannGraph に 50 秒、CoxeterGraph に 119 秒かかります。
 - **halin-tw** は Halin グラフだけを線形時間で解き、それ以外のグラフは受け付けません（終了コード 2。`not_applicable` として記録）。ベンチマーク 6036 件のうち受け付けるのは 9 件（FruchtGraph、TetrahedralGraph、2 か所にある WheelGraph_100、transit-graphs 中の 5 頂点の車輪 5 件）で、どれも treewidth 3 です。平面性にもとづく独立な判定でも同じ 9 件になります。したがって `ok` の行は少なく、`not_applicable` の行は失敗ではありません。
+- **bfk-treewidth-2approx** の答えは常に幅 2·tw+1 以下ですが、そのための DP は各ノードに 3^|バッグ| か 4^|バッグ| 要素の表を持つので、改善できるのは min-degree の木分解の幅が小さいグラフに限られます。ベンチマークで改善できた最大の幅は 14 で、下に書く終了コード 3 は road-graphs 以外ではどれも幅 14 以上でした（上流の README は限界を 16 程度としています）。表が 24 GB の上限（`--mem-gb`）を超える場合は計算をやめて終了コード 3 で終わり、`error: exit 3` と記録されます。これはソルバーが諦めたのであって、クラッシュではありません。min-degree の幅がはじめから 2·退化度+1 以下なら、DP をせずにその木分解をそのまま出力します。ベンチマーク全 8 セット（6036 件、60 秒、`--validate`）では `ok` が 4636 件（すべて妥当）でしたが、そのうち min-degree より幅が小さいのは 30 件だけで、1252 件が終了コード 3、148 件が時間切れでした。1 回の実行で 24 GB 近く使うことがある（観測値 22.9 GB）ので、`--jobs` では 1 ジョブあたりその分のメモリを見込んでください。
 - **bz-treewidth** は上流 Makefile の先頭にある `BZTreewidth-DP` バリアントを Mono ではなく .NET SDK でビルドします。残り 11 バリアントはプリプロセッサシンボルの違いです。
 
 ## ベンチマーク一覧
@@ -229,6 +231,7 @@ p tw <頂点数> <辺数>
 | passagemath | GPL-2.0-or-later | [passagemath/passagemath](https://github.com/passagemath/passagemath)（PyPI: [passagemath-graphs](https://pypi.org/project/passagemath-graphs/)） |
 | treedec | GPL-2.0 / GPL-3.0（ファイルごと） | [freetdi/treedec](https://codeberg.org/freetdi/treedec)（ミラー: [freetdi/tdlib](https://github.com/freetdi/tdlib)）。gala ヘッダは GPL-3.0、[freetdi/gala](https://github.com/freetdi/gala) |
 | halin-tw | MIT | [junkawahara/halin_tw](https://github.com/junkawahara/halin_tw) |
+| bfk-treewidth-2approx | MIT | [junkawahara/bfk-treewidth-2approx](https://github.com/junkawahara/bfk-treewidth-2approx) |
 
 ### ベンチマークのライセンス
 
