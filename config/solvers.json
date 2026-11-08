@@ -572,5 +572,27 @@
     "pace_year": null,
     "description": "SageMath's exact treewidth, Graph.treewidth(algorithm='sage'), via the pip-installable passagemath-graphs (Python/Cython)",
     "notes": "passagemath ships parts of the Sage library as pip wheels, so there is no repository to clone: the solver directory only holds a venv (about 430 MB, 108 MB downloaded) and the wrapper config/passagemath_wrapper.py. Every package is pinned by config/passagemath-constraints.txt; the venv is recreated on each setup run (pip's cache makes that quick). The cliquer extra is required, because treewidth() calls clique_number(), which imports sage.graphs.cliquer and fails without it. memory_allocator has no wheel and is compiled from its sdist, which needs gcc and the Python headers (python3-dev). The 'sage' algorithm decides treewidth <= k for increasing k by dynamic programming over pairs of a cut of at most k+1 vertices and a component of the rest; it is named explicitly because the default switches to tdlib when passagemath-tdlib is present, and tdlib is what tdlib-p17 and treedec already run. It is far slower than the PACE solvers (BrinkmannGraph 50 s and CoxeterGraph 119 s, where tamaki-2017 needs 0.3 s), but finishes small graphs instantly; Python start-up and the Sage import add about 0.3 s per run. The wrapper parses the .gr itself (comments, blank lines, self-loops and parallel edges are dropped; isolated vertices kept) and stops on SIGTERM without output, which the runner records as a timeout. The last build step runs the wrapper on tests/k4.gr, so an install that imports but cannot compute fails the build instead of every run."
+  },
+  {
+    "name": "halin-tw",
+    "type": "exact",
+    "language": "cpp",
+    "repo": "https://github.com/junkawahara/halin_tw.git",
+    "commit": "ebae8e652a0e6cb498ae399712b2538850f9e69a",
+    "build_steps": [
+      "make bin/halin_td"
+    ],
+    "tools": [
+      "make"
+    ],
+    "run_command": "./bin/halin_td < {input}",
+    "run_mode": "stdin_stdout",
+    "input_format": "pace_gr_simple",
+    "output_format": "pace_td",
+    "not_applicable_exit_code": 2,
+    "authors": "Jun Kawahara",
+    "pace_year": null,
+    "description": "Halin graphs only: Eppstein's linear-time recognition, then the linear-time H-Td algorithm of Alejandro-Soto, Trejo-Sanchez and Segura for a width-3 decomposition (C++17)",
+    "notes": "An implementation, written from the papers rather than from the authors' code (none is published), of H-Td (Alejandro-Soto, Trejo-Sanchez, Segura, arXiv:2506.02346, 2025) on top of Eppstein's reduction-based Halin recognition (JGAA 20(2), 2016). Both steps are linear-time. bin/halin_td reads a .gr on stdin and either writes a width-3 .td to stdout or, for any graph that is not Halin, prints 'error: input is not a Halin graph (<reason>)' to stderr and exits 2; not_applicable_exit_code turns that into status not_applicable, while exit 1 (unreadable input) stays an error. Every Halin graph has treewidth exactly 3, so an ok row always says 3; the bags are not deduplicated across tree nodes (K4 gives 7 bags, three of them equal), which is still a valid decomposition. The recognizer rejects self-loops and parallel edges as non-Halin, so the runner feeds it a simple-graph copy (input_format pace_gr_simple). Only bin/halin_td is built; the repository's Makefile also builds a generator, a validator and a brute-force test that the runner does not use. Plain C++17 with -O2, no libraries. On all eight benchmark sets (6036 instances, 60 s, --validate) it accepted exactly 9 (named-graphs FruchtGraph, TetrahedralGraph, WheelGraph_100; pace2016-testbed WheelGraph_100; five 5-vertex wheels among the transit graphs), all valid with width 3 and matching tamaki-2017; it declined the other 6027, with no errors and no run over 3 s (the road graphs included). An independent networkx check (a face F of the planar embedding such that G - E(F) is a tree without degree-2 vertices whose leaves are exactly V(F)) picks out the same 9 instances. On random Halin graphs from the repository's gen_halin, a 238,000-vertex graph takes 0.48 s through the runner, while tamaki-2017 already times out at 30 s on 7,500 vertices."
   }
 ]

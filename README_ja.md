@@ -14,7 +14,7 @@
 
 ソルバーごとの依存:
 - **Java ソルバー** (twalgor-tw, twalgor-rtw, tamaki-2017, jdrasil, turbocharge-2016, libtw): JDK 8+
-- **C/C++ ソルバー** (tamaki-2016, tdlib-p17, flowcutter-17, flowcutter-16, htd, minfill-mrs, minfillbg-mrs, cvo2, foxepstein-2016, iitm-2016, triangulator, triangulator-msc, treedec): GCC 7+（C++17 対応の g++）と `make`
+- **C/C++ ソルバー** (tamaki-2016, tdlib-p17, flowcutter-17, flowcutter-16, htd, minfill-mrs, minfillbg-mrs, cvo2, foxepstein-2016, iitm-2016, triangulator, triangulator-msc, treedec, halin-tw): GCC 7+（C++17 対応の g++）と `make`
   - **treedec** は Boost（graph と thread）、autotools、libtool、Git が必要（Debian/Ubuntu では `sudo apt install libboost-graph-dev libboost-thread-dev autoconf automake libtool`）。依存する gala ヘッダはビルド時に clone します
   - **tdlib-p17** は C++17（ビルド時にインライン変数を挿入します）、Boost、autotools、libtool が必要です（Debian/Ubuntu: `sudo apt install libboost-graph-dev libboost-thread-dev autoconf automake libtool`）
   - **htd** と **cvo2** は CMake が必要です（Debian/Ubuntu: `sudo apt install cmake`）
@@ -99,6 +99,7 @@ python run.py --solver all --benchmark all --timeout 60 --max-instances 5
 | triangulator-msc | Tuukka Korhonen | C++ | Triangulator の 2020 年修士論文版。同じアルゴリズムに前処理と高速な PMC 列挙を加えたもの。CPLEX/MaxHS 抜きでビルド（`config/triangulator-msc-no-cplex.patch`） |
 | treedec | Larisch, Salfelder | C++ | treedec (tdlib) の 2025 年版を `tdecomp` ドライバ経由で実行。`--ex17` は前処理 + Tamaki 厳密法。`--ppfitm`（前処理 + fill-in + 三角化最小化）ヒューリスティックも持つ |
 | passagemath | The Sage Developers | Python/Cython | SageMath 自前の厳密法 `Graph.treewidth(algorithm='sage')`（カットと連結成分の DP）。pip で入る passagemath-graphs を使用 |
+| halin-tw | Jun Kawahara | C++ | Halin グラフ専用。Eppstein の線形時間認識のあと、Alejandro-Soto, Trejo-Sanchez, Segura (2025) の線形時間アルゴリズム H-Td で幅 3 の木分解を作る。それ以外のグラフは受け付けない（`not_applicable`） |
 
 ### ヒューリスティックソルバー (Heuristic)
 
@@ -125,6 +126,7 @@ python run.py --solver all --benchmark all --timeout 60 --max-instances 5
 - **triangulator-msc** の上流は幅しか出力しません。`config/` のパッチで `.td` 出力を追加し、runner が使わない CPLEX/MaxHS 依存のモード（ハイパー木幅、MaxSAT による系統解析）を外しています。
 - **treedec** には各インスタンスの単純グラフ化コピー（自己ループ・多重辺・コメント・空行を除去）を渡します。リーダーが空行と自己ループで落ちるためで、transit-graphs には自己ループとコメントの両方が含まれます。exact モードは PACE 2017 の方式を現行ライブラリで組み直したものなので、2017 年当時の提出物をそのまま動かす tdlib-p17 と比較してください。
 - **passagemath** は tdlib ではなく Sage 自前のアルゴリズムを使います（passagemath-tdlib があると Sage は tdlib を選びますが、それは tdlib-p17 と treedec で既にカバーしています）。小さなグラフ以外では PACE のソルバーよりずっと遅く、tamaki-2017 が 0.3 秒で解く BrinkmannGraph に 50 秒、CoxeterGraph に 119 秒かかります。
+- **halin-tw** は Halin グラフだけを線形時間で解き、それ以外のグラフは受け付けません（終了コード 2。`not_applicable` として記録）。ベンチマーク 6036 件のうち受け付けるのは 9 件（FruchtGraph、TetrahedralGraph、2 か所にある WheelGraph_100、transit-graphs 中の 5 頂点の車輪 5 件）で、どれも treewidth 3 です。平面性にもとづく独立な判定でも同じ 9 件になります。したがって `ok` の行は少なく、`not_applicable` の行は失敗ではありません。
 - **bz-treewidth** は上流 Makefile の先頭にある `BZTreewidth-DP` バリアントを Mono ではなく .NET SDK でビルドします。残り 11 バリアントはプリプロセッサシンボルの違いです。
 
 ## ベンチマーク一覧
@@ -226,6 +228,7 @@ p tw <頂点数> <辺数>
 | triangulator-msc | MIT | [Laakeri/triangulator-msc](https://github.com/Laakeri/triangulator-msc) |
 | passagemath | GPL-2.0-or-later | [passagemath/passagemath](https://github.com/passagemath/passagemath)（PyPI: [passagemath-graphs](https://pypi.org/project/passagemath-graphs/)） |
 | treedec | GPL-2.0 / GPL-3.0（ファイルごと） | [freetdi/treedec](https://codeberg.org/freetdi/treedec)（ミラー: [freetdi/tdlib](https://github.com/freetdi/tdlib)）。gala ヘッダは GPL-3.0、[freetdi/gala](https://github.com/freetdi/gala) |
+| halin-tw | MIT | [junkawahara/halin_tw](https://github.com/junkawahara/halin_tw) |
 
 ### ベンチマークのライセンス
 

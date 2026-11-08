@@ -14,7 +14,7 @@ Required:
 
 Per-solver dependencies:
 - **Java solvers** (twalgor-tw, twalgor-rtw, tamaki-2017, jdrasil, turbocharge-2016, libtw): JDK 8+
-- **C/C++ solvers** (tamaki-2016, tdlib-p17, flowcutter-17, flowcutter-16, htd, minfill-mrs, minfillbg-mrs, cvo2, foxepstein-2016, iitm-2016, triangulator, triangulator-msc, treedec): GCC 7+ (g++ with C++17 support) and `make`
+- **C/C++ solvers** (tamaki-2016, tdlib-p17, flowcutter-17, flowcutter-16, htd, minfill-mrs, minfillbg-mrs, cvo2, foxepstein-2016, iitm-2016, triangulator, triangulator-msc, treedec, halin-tw): GCC 7+ (g++ with C++17 support) and `make`
   - **treedec** needs Boost (graph and thread), autotools, libtool and Git (`sudo apt install libboost-graph-dev libboost-thread-dev autoconf automake libtool` on Debian/Ubuntu); its gala header dependency is cloned by the build
   - **tdlib-p17** needs C++17 (the build inserts an inline variable), Boost, autotools and libtool (`sudo apt install libboost-graph-dev libboost-thread-dev autoconf automake libtool` on Debian/Ubuntu)
   - **htd** and **cvo2** require CMake (`sudo apt install cmake` on Debian/Ubuntu)
@@ -99,6 +99,7 @@ Results are appended to the CSV as each run finishes, so an interrupted run (Ctr
 | triangulator-msc | Tuukka Korhonen | C++ | Triangulator, 2020 thesis version: same algorithm with preprocessing and a faster PMC enumerator; built without CPLEX/MaxHS (see `config/triangulator-msc-no-cplex.patch`) |
 | treedec | Larisch, Salfelder | C++ | treedec (tdlib) at its 2025 head, via its `tdecomp` driver: `--ex17` preprocessing + Tamaki exact; also `--ppfitm` preprocessing + fill-in + triangulation minimisation heuristic |
 | passagemath | The Sage Developers | Python/Cython | SageMath's own exact `Graph.treewidth(algorithm='sage')` (cut/component dynamic programming), from the pip-installable passagemath-graphs |
+| halin-tw | Jun Kawahara | C++ | Halin graphs only: Eppstein's linear-time recognition, then the linear-time H-Td algorithm of Alejandro-Soto, Trejo-Sanchez and Segura (2025) for a width-3 decomposition; other graphs are declined (`not_applicable`) |
 
 ### Heuristic Solvers
 
@@ -125,6 +126,7 @@ Solver-specific details (source patches a build needs, which upstream variant is
 - **triangulator-msc** upstream prints only the width; the patch in `config/` adds the `.td` output and drops the CPLEX/MaxHS-dependent modes (hypertree width, MaxSAT phylogeny), which the runner does not use.
 - **treedec** is fed a simple-graph copy of each instance (self-loops, parallel edges, comments and blank lines removed), because its reader crashes on blank lines and self-loops; the transit graphs contain both self-loops and comments. Its exact mode is the PACE 2017 approach rebuilt from the current library, so compare it with tdlib-p17, which runs the frozen 2017 submission.
 - **passagemath** runs Sage's own algorithm, not tdlib (which Sage would pick if passagemath-tdlib were installed, and which tdlib-p17 and treedec already cover). It is far slower than the PACE solvers on anything but small graphs: BrinkmannGraph takes 50 s and CoxeterGraph 119 s, where tamaki-2017 needs 0.3 s.
+- **halin-tw** solves only Halin graphs, in linear time, and declines every other graph (exit code 2, recorded as `not_applicable`). Of the 6036 benchmark instances it accepts 9 (FruchtGraph, TetrahedralGraph, the two WheelGraph_100 copies and five 5-vertex wheels among the transit graphs), all of treewidth 3; an independent planarity-based check finds the same 9. Its `ok` rows are therefore few, and its `not_applicable` rows are not failures.
 - **bz-treewidth** builds the `BZTreewidth-DP` variant (the first in the upstream Makefile) with the .NET SDK instead of Mono; the other eleven variants are preprocessor symbols.
 
 ## Benchmarks
@@ -226,6 +228,7 @@ This repository does not redistribute any solver or benchmark source code. All e
 | triangulator-msc | MIT | [Laakeri/triangulator-msc](https://github.com/Laakeri/triangulator-msc) |
 | passagemath | GPL-2.0-or-later | [passagemath/passagemath](https://github.com/passagemath/passagemath) (PyPI: [passagemath-graphs](https://pypi.org/project/passagemath-graphs/)) |
 | treedec | GPL-2.0 / GPL-3.0 (per file) | [freetdi/treedec](https://codeberg.org/freetdi/treedec) (mirror: [freetdi/tdlib](https://github.com/freetdi/tdlib)); gala headers GPL-3.0, [freetdi/gala](https://github.com/freetdi/gala) |
+| halin-tw | MIT | [junkawahara/halin_tw](https://github.com/junkawahara/halin_tw) |
 
 ### Benchmark Licenses
 
