@@ -454,6 +454,17 @@ def run_solver(
 
             if timed_out and not signal_timeout:
                 result["status"] = "timeout"
+            elif (
+                not timed_out
+                and returncode != 0
+                and returncode == solver.get("not_applicable_exit_code")
+            ):
+                # A solver for one graph class (halin-tw: Halin graphs only)
+                # declares the exit code it uses to decline an instance
+                # outside that class. That is an answer about the input, not
+                # a failure, and recording it as "error: exit N" would bury
+                # real crashes among thousands of declined instances.
+                result["status"] = "not_applicable"
             elif not timed_out and returncode != 0:
                 # A crash is not an answer, whatever was printed before it:
                 # a JVM that dies after the "s td" header leaves a truncated

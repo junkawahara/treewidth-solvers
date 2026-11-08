@@ -166,6 +166,7 @@ tamaki-2017,exact,pace2017-instances,ex001,100,250,12,1.234,ok,312.5
 | `timeout` | No answer within `--timeout`. Also used for quickbb when it stopped at its internal limit with only an unproven upper bound, and for a heuristic whose output was cut off when it had to be killed. |
 | `invalid` | The emitted decomposition is incorrect. The width declared in the `s td` header is always checked against the largest bag, since the `treewidth` column comes from that header. `--validate` additionally checks the decomposition against the graph. `--debug` prints the reason. |
 | `parse_error` | The solver exited normally but its output contained no recognisable `s td` header or width line. |
+| `not_applicable` | The solver works only on one graph class and declined the instance as outside it, with the exit code its `not_applicable_exit_code` declares (halin-tw: not a Halin graph). |
 | `error: exit N` / `error: signal N` | The solver exited with a non-zero code or was killed by a signal (crash, out of memory). |
 | `error: <message>` | The runner itself failed, e.g. the instance file could not be parsed. |
 

@@ -125,13 +125,15 @@ def _error_result(item, exc):
 
 
 def summarize(results):
-    """One-line status breakdown: ok, timeout, invalid, parse_error, error.
+    """One-line status breakdown: ok, timeout, invalid, parse_error,
+    not_applicable, error.
 
     Each status is counted separately so that, for example, the number of
     decompositions --validate rejected is visible instead of being folded
     into a generic error count. "error: <reason>" rows are grouped as error.
     """
-    counts = {"ok": 0, "timeout": 0, "invalid": 0, "parse_error": 0, "error": 0}
+    counts = {"ok": 0, "timeout": 0, "invalid": 0, "parse_error": 0,
+              "not_applicable": 0, "error": 0}
     for r in results:
         st = r["status"]
         key = "error" if st.startswith("error") else st

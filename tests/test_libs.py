@@ -377,9 +377,10 @@ def test_summary_counts_each_status_separately():
 
     rows = [_row("a"), _row("b", status="timeout"), _row("c", status="invalid"),
             _row("d", status="parse_error"), _row("e", status="error: exit 1"),
-            _row("f", status="error: boom"), _row("g", status="invalid")]
+            _row("f", status="error: boom"), _row("g", status="invalid"),
+            _row("h", status="not_applicable")]
     assert run_mod.summarize(rows) == (
-        "Summary: 1 ok, 1 timeout, 2 invalid, 1 parse_error, 2 error"
+        "Summary: 1 ok, 1 timeout, 2 invalid, 1 parse_error, 1 not_applicable, 2 error"
     )
     assert run_mod.summarize([_row("a")]) == "Summary: 1 ok, 0 timeout"
 
@@ -510,6 +511,34 @@ def test_run_solver_classifies_nonzero_exit_as_error(tmp_path):
         fake["run_command"] = "echo 's td 1 2 4'; echo 'b 1 1 2'"
         r = runner.run_solver("fake", _gr("path4.gr"), timeout=5)
         assert r["status"] == "ok" and r["treewidth"] == 1
+    finally:
+        runner.get_solver, runner.solver_dir = orig_get, orig_dir
+
+
+def test_run_solver_records_declared_exit_code_as_not_applicable(tmp_path):
+    """A solver for one graph class declines other inputs with the exit code
+    it declares; only that code becomes not_applicable, others stay errors."""
+    fake = {
+        "name": "fake", "type": "exact", "language": "c",
+        "run_command": "exit 2", "run_mode": "stdin_stdout",
+        "input_format": "pace_gr", "output_format": "pace_td",
+        "not_applicable_exit_code": 2,
+    }
+    orig_get, orig_dir = runner.get_solver, runner.solver_dir
+    runner.get_solver = lambda name: fake
+    runner.solver_dir = lambda name: tmp_path
+    try:
+        r = runner.run_solver("fake", _gr("path4.gr"), timeout=5)
+        assert r["status"] == "not_applicable" and r["treewidth"] is None
+        assert r["time_sec"] is not None
+        fake["run_command"] = "exit 3"
+        assert runner.run_solver("fake", _gr("path4.gr"), timeout=5)["status"] == "error: exit 3"
+        fake["run_command"] = "echo 's td 1 2 4'; echo 'b 1 1 2'"
+        r = runner.run_solver("fake", _gr("path4.gr"), timeout=5)
+        assert r["status"] == "ok" and r["treewidth"] == 1
+        del fake["not_applicable_exit_code"]
+        fake["run_command"] = "exit 2"
+        assert runner.run_solver("fake", _gr("path4.gr"), timeout=5)["status"] == "error: exit 2"
     finally:
         runner.get_solver, runner.solver_dir = orig_get, orig_dir
 
@@ -848,6 +877,11 @@ def test_every_configured_solver_is_well_formed():
         assert s["language"] in reg.LANGUAGE_TOOLS, (s["name"], s["language"])
         assert s["run_mode"] in ("stdin_stdout", "stdin_stdout_signal", "file"), s["name"]
         assert (s["type"] == "both") == ("run_command_heuristic" in s), s["name"]
+        if "not_applicable_exit_code" in s:
+            code = s["not_applicable_exit_code"]
+            # Compared with the process's return code, so a string or a
+            # code outside 1..255 would silently never match.
+            assert type(code) is int and 1 <= code <= 255, s["name"]
         for cmd in (s["run_command"], s.get("run_command_heuristic", "")):
             used = {f for _, f, _, _ in string.Formatter().parse(cmd) if f}
             assert used <= placeholders, (s["name"], used - placeholders)
