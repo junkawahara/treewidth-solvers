@@ -14,10 +14,11 @@
 
 ソルバーごとの依存:
 - **Java ソルバー** (twalgor-tw, twalgor-rtw, tamaki-2017, jdrasil, turbocharge-2016, libtw): JDK 8+
-- **C/C++ ソルバー** (tamaki-2016, tdlib-p17, flowcutter-17, flowcutter-16, htd, minfill-mrs, minfillbg-mrs, cvo2, foxepstein-2016, iitm-2016, triangulator, triangulator-msc, treedec, halin-tw, bfk-treewidth-2approx): GCC 7+（C++17 対応の g++）と `make`
+- **C/C++ ソルバー** (tamaki-2016, tdlib-p17, flowcutter-17, flowcutter-16, htd, minfill-mrs, minfillbg-mrs, cvo2, foxepstein-2016, iitm-2016, triangulator, triangulator-msc, treedec, halin-tw, bfk-treewidth-2approx, tamaki-treewidth-sea2019): GCC 7+（C++17 対応の g++）と `make`
   - **treedec** は Boost（graph と thread）、autotools、libtool、Git が必要（Debian/Ubuntu では `sudo apt install libboost-graph-dev libboost-thread-dev autoconf automake libtool`）。依存する gala ヘッダはビルド時に clone します
   - **tdlib-p17** は C++17（ビルド時にインライン変数を挿入します）、Boost、autotools、libtool が必要です（Debian/Ubuntu: `sudo apt install libboost-graph-dev libboost-thread-dev autoconf automake libtool`）
   - **htd** と **cvo2** は CMake が必要です（Debian/Ubuntu: `sudo apt install cmake`）
+  - **tamaki-treewidth-sea2019** は C++20 が必要です（`-std=c++20`、GCC 10 以上）
 - **QuickBB**: C++11 対応の g++、autotools (autoconf, automake)
 - **Rust ソルバー** (arboretum, goatd): `cargo` を含む Rust ツールチェーン（<https://rustup.rs>）。goatd は Rust 1.88+ と、同梱の FlowCutter をビルドするための C++20 コンパイラ（g++ 12+）が必要です
 - **bz-treewidth**: .NET SDK 8 以上（`dotnet`、例: `sudo apt install dotnet-sdk-8.0`）。上流の Mono ベースの Makefile は使いません
@@ -100,6 +101,7 @@ python run.py --solver all --benchmark all --timeout 60 --max-instances 5
 | treedec | Larisch, Salfelder | C++ | treedec (tdlib) の 2025 年版を `tdecomp` ドライバ経由で実行。`--ex17` は前処理 + Tamaki 厳密法。`--ppfitm`（前処理 + fill-in + 三角化最小化）ヒューリスティックも持つ |
 | passagemath | The Sage Developers | Python/Cython | SageMath 自前の厳密法 `Graph.treewidth(algorithm='sage')`（カットと連結成分の DP）。pip で入る passagemath-graphs を使用 |
 | halin-tw | Jun Kawahara | C++ | Halin グラフ専用。Eppstein の線形時間認識のあと、Alejandro-Soto, Trejo-Sanchez, Segura (2025) の線形時間アルゴリズム H-Td で幅 3 の木分解を作る。それ以外のグラフは受け付けない（`not_applicable`） |
+| tamaki-treewidth-sea2019 | Jun Kawahara | C++ | Tamaki (SEA 2019) のアルゴリズムを講演スライドから再実装したもの。極小分離集合の厳密リストとヒューリスティックリストの上で msDP を行い、下からの探索と上からの探索を交互に進める（`-m alternate`） |
 
 ### ヒューリスティックソルバー (Heuristic)
 
@@ -129,6 +131,7 @@ python run.py --solver all --benchmark all --timeout 60 --max-instances 5
 - **passagemath** は tdlib ではなく Sage 自前のアルゴリズムを使います（passagemath-tdlib があると Sage は tdlib を選びますが、それは tdlib-p17 と treedec で既にカバーしています）。小さなグラフ以外では PACE のソルバーよりずっと遅く、tamaki-2017 が 0.3 秒で解く BrinkmannGraph に 50 秒、CoxeterGraph に 119 秒かかります。
 - **halin-tw** は Halin グラフだけを線形時間で解き、それ以外のグラフは受け付けません（終了コード 2。`not_applicable` として記録）。ベンチマーク 6036 件のうち受け付けるのは 9 件（FruchtGraph、TetrahedralGraph、2 か所にある WheelGraph_100、transit-graphs 中の 5 頂点の車輪 5 件）で、どれも treewidth 3 です。平面性にもとづく独立な判定でも同じ 9 件になります。したがって `ok` の行は少なく、`not_applicable` の行は失敗ではありません。
 - **bfk-treewidth-2approx** の答えは常に幅 2·tw+1 以下ですが、そのための DP は各ノードに 3^|バッグ| か 4^|バッグ| 要素の表を持つので、改善できるのは min-degree の木分解の幅が小さいグラフに限られます。ベンチマークで改善できた最大の幅は 14 で、下に書く終了コード 3 は road-graphs 以外ではどれも幅 14 以上でした（上流の README は限界を 16 程度としています）。表が 24 GB の上限（`--mem-gb`）を超える場合は計算をやめて終了コード 3 で終わり、`error: exit 3` と記録されます。これはソルバーが諦めたのであって、クラッシュではありません。min-degree の幅がはじめから 2·退化度+1 以下なら、DP をせずにその木分解をそのまま出力します。ベンチマーク全 8 セット（6036 件、60 秒、`--validate`）では `ok` が 4636 件（すべて妥当）でしたが、そのうち min-degree より幅が小さいのは 30 件だけで、1252 件が終了コード 3、148 件が時間切れでした。1 回の実行で 24 GB 近く使うことがある（観測値 22.9 GB）ので、`--jobs` では 1 ジョブあたりその分のメモリを見込んでください。
+- **tamaki-treewidth-sea2019** は Tamaki の SEA 2019 のアルゴリズムを講演スライドから組み立て直した再実装で（論文は入手できなかったため）、Tamaki 本人のコードではありません。隣接関係を頂点ごとに n ビットの集合で持つので、グラフを読み込むだけで n²/8 バイト（20 万頂点で 5 GB、100 万頂点で 125 GB）を使い、ソルバー自身はメモリの上限を設けません。PACE 2017 heuristic track のグラフや road-graphs に対しては、ジョブ数を減らすか、`ulimit -v` などで 1 プロセスごとのメモリ上限をかけてください。以下の数字は `ulimit -v` で 1 プロセス 5 GiB、8 ジョブで測ったものです。ベンチマーク全 8 セット（6036 件、60 秒、`--validate`）では 4795 件が `ok`（すべて妥当）、1201 件が時間切れで、残る 40 件（15 万 4188 頂点以上のグラフはすべてここに入ります）は上限で止まりました（読み込み中にグラフが収まらなかった場合は `error: exit 1`、計算中に上限に達した場合は `error: exit 134`）。この 40 件のうち 31 万頂点以下の 11 件は、上限を 20 GiB にしても 60 秒以内に終わりませんでした。残りの 5996 件では、このソルバーと tamaki-2017 の両方が解いたものが 4560 件で幅はすべて一致し、このソルバーだけが解いたものが 235 件（うち transit-graphs 155 件、pace2017-bonus 26 件）、tamaki-2017 だけが解いたものが 21 件でした。その 235 件を triangulator-msc（60 秒）でも解くと 17 件が解けて幅は一致し、残る 218 件は他の厳密ソルバーの答えと照合できていません。
 - **bz-treewidth** は上流 Makefile の先頭にある `BZTreewidth-DP` バリアントを Mono ではなく .NET SDK でビルドします。残り 11 バリアントはプリプロセッサシンボルの違いです。
 
 ## ベンチマーク一覧
@@ -232,6 +235,7 @@ p tw <頂点数> <辺数>
 | treedec | GPL-2.0 / GPL-3.0（ファイルごと） | [freetdi/treedec](https://codeberg.org/freetdi/treedec)（ミラー: [freetdi/tdlib](https://github.com/freetdi/tdlib)）。gala ヘッダは GPL-3.0、[freetdi/gala](https://github.com/freetdi/gala) |
 | halin-tw | MIT | [junkawahara/halin_tw](https://github.com/junkawahara/halin_tw) |
 | bfk-treewidth-2approx | MIT | [junkawahara/bfk-treewidth-2approx](https://github.com/junkawahara/bfk-treewidth-2approx) |
+| tamaki-treewidth-sea2019 | MIT | [junkawahara/tamaki-treewidth-sea2019](https://github.com/junkawahara/tamaki-treewidth-sea2019) |
 
 ### ベンチマークのライセンス
 

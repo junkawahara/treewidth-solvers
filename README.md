@@ -14,10 +14,11 @@ Required:
 
 Per-solver dependencies:
 - **Java solvers** (twalgor-tw, twalgor-rtw, tamaki-2017, jdrasil, turbocharge-2016, libtw): JDK 8+
-- **C/C++ solvers** (tamaki-2016, tdlib-p17, flowcutter-17, flowcutter-16, htd, minfill-mrs, minfillbg-mrs, cvo2, foxepstein-2016, iitm-2016, triangulator, triangulator-msc, treedec, halin-tw, bfk-treewidth-2approx): GCC 7+ (g++ with C++17 support) and `make`
+- **C/C++ solvers** (tamaki-2016, tdlib-p17, flowcutter-17, flowcutter-16, htd, minfill-mrs, minfillbg-mrs, cvo2, foxepstein-2016, iitm-2016, triangulator, triangulator-msc, treedec, halin-tw, bfk-treewidth-2approx, tamaki-treewidth-sea2019): GCC 7+ (g++ with C++17 support) and `make`
   - **treedec** needs Boost (graph and thread), autotools, libtool and Git (`sudo apt install libboost-graph-dev libboost-thread-dev autoconf automake libtool` on Debian/Ubuntu); its gala header dependency is cloned by the build
   - **tdlib-p17** needs C++17 (the build inserts an inline variable), Boost, autotools and libtool (`sudo apt install libboost-graph-dev libboost-thread-dev autoconf automake libtool` on Debian/Ubuntu)
   - **htd** and **cvo2** require CMake (`sudo apt install cmake` on Debian/Ubuntu)
+  - **tamaki-treewidth-sea2019** needs C++20 (`-std=c++20`, GCC 10+)
 - **QuickBB**: g++ with C++11 support, autotools (autoconf, automake)
 - **Rust solvers** (arboretum, goatd): a Rust toolchain with `cargo` (<https://rustup.rs>); goatd needs Rust 1.88+ and a C++20 compiler (g++ 12+) for its vendored FlowCutter
 - **bz-treewidth**: a .NET SDK 8 or newer (`dotnet`, e.g. `sudo apt install dotnet-sdk-8.0`); the project's own Mono-based Makefile is not used
@@ -100,6 +101,7 @@ Results are appended to the CSV as each run finishes, so an interrupted run (Ctr
 | treedec | Larisch, Salfelder | C++ | treedec (tdlib) at its 2025 head, via its `tdecomp` driver: `--ex17` preprocessing + Tamaki exact; also `--ppfitm` preprocessing + fill-in + triangulation minimisation heuristic |
 | passagemath | The Sage Developers | Python/Cython | SageMath's own exact `Graph.treewidth(algorithm='sage')` (cut/component dynamic programming), from the pip-installable passagemath-graphs |
 | halin-tw | Jun Kawahara | C++ | Halin graphs only: Eppstein's linear-time recognition, then the linear-time H-Td algorithm of Alejandro-Soto, Trejo-Sanchez and Segura (2025) for a width-3 decomposition; other graphs are declined (`not_applicable`) |
+| tamaki-treewidth-sea2019 | Jun Kawahara | C++ | Tamaki's SEA 2019 algorithm, reimplemented from the talk slides: msDP over exact and heuristic lists of minimal separators, with the ascending and descending searches alternated (`-m alternate`) |
 
 ### Heuristic Solvers
 
@@ -129,6 +131,7 @@ Solver-specific details (source patches a build needs, which upstream variant is
 - **passagemath** runs Sage's own algorithm, not tdlib (which Sage would pick if passagemath-tdlib were installed, and which tdlib-p17 and treedec already cover). It is far slower than the PACE solvers on anything but small graphs: BrinkmannGraph takes 50 s and CoxeterGraph 119 s, where tamaki-2017 needs 0.3 s.
 - **halin-tw** solves only Halin graphs, in linear time, and declines every other graph (exit code 2, recorded as `not_applicable`). Of the 6036 benchmark instances it accepts 9 (FruchtGraph, TetrahedralGraph, the two WheelGraph_100 copies and five 5-vertex wheels among the transit graphs), all of treewidth 3; an independent planarity-based check finds the same 9. Its `ok` rows are therefore few, and its `not_applicable` rows are not failures.
 - **bfk-treewidth-2approx** always answers with width ≤ 2·tw+1, but gets there by dynamic programming over tables of 3^|bag| or 4^|bag| entries per node, so it can only improve graphs whose min-degree decomposition is narrow: on the benchmarks the widest one it improved had width 14, and every exit 3 below outside the road graphs had width 14 or more (the upstream README puts the limit at about 16). When the tables would exceed its 24 GB limit (`--mem-gb`) it stops and exits 3, recorded as `error: exit 3`: the solver giving up, not a crash. When the min-degree width is already ≤ 2·degeneracy+1 it outputs that decomposition without any DP. On all eight benchmark sets (6036 instances, 60 s, `--validate`) 4636 runs were `ok` (all valid), but only 30 of them are narrower than the min-degree decomposition; 1252 ended with exit 3 and 148 timed out. A single run can take close to 24 GB (22.9 GB observed), so allow that much per job with `--jobs`.
+- **tamaki-treewidth-sea2019** is a reimplementation of Tamaki's SEA 2019 algorithm reconstructed from the talk slides (the paper was not available), not Tamaki's own code. It keeps the adjacency as one n-bit set per vertex, so reading a graph alone takes n²/8 bytes (5 GB at 200,000 vertices, 125 GB at a million), and it sets no limit of its own: give it few jobs, or a per-process memory limit such as `ulimit -v`, on the PACE 2017 heuristic-track and road graphs. The figures here were measured with `ulimit -v` at 5 GiB per process and 8 jobs. On all eight benchmark sets (6036 instances, 60 s, `--validate`) 4795 runs were `ok` (all valid) and 1201 timed out; the other 40, every graph with 154,188 or more vertices among them, stopped at the limit (`error: exit 1` when the graph did not fit while being read, `error: exit 134` when the limit was reached while solving). The 11 of those 40 with at most 310,000 vertices did not finish within 60 s with 20 GiB either. On the remaining 5996 instances it and tamaki-2017 both solved 4560, with identical widths; only this solver solved 235 (155 of them transit graphs and 26 PACE 2017 bonus instances), only tamaki-2017 21. triangulator-msc (60 s) solved 17 of those 235, with the same widths; the other 218 have no second exact answer to compare with.
 - **bz-treewidth** builds the `BZTreewidth-DP` variant (the first in the upstream Makefile) with the .NET SDK instead of Mono; the other eleven variants are preprocessor symbols.
 
 ## Benchmarks
@@ -232,6 +235,7 @@ This repository does not redistribute any solver or benchmark source code. All e
 | treedec | GPL-2.0 / GPL-3.0 (per file) | [freetdi/treedec](https://codeberg.org/freetdi/treedec) (mirror: [freetdi/tdlib](https://github.com/freetdi/tdlib)); gala headers GPL-3.0, [freetdi/gala](https://github.com/freetdi/gala) |
 | halin-tw | MIT | [junkawahara/halin_tw](https://github.com/junkawahara/halin_tw) |
 | bfk-treewidth-2approx | MIT | [junkawahara/bfk-treewidth-2approx](https://github.com/junkawahara/bfk-treewidth-2approx) |
+| tamaki-treewidth-sea2019 | MIT | [junkawahara/tamaki-treewidth-sea2019](https://github.com/junkawahara/tamaki-treewidth-sea2019) |
 
 ### Benchmark Licenses
 
