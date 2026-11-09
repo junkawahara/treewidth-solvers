@@ -13,7 +13,7 @@
 - Git
 
 ソルバーごとの依存:
-- **Java ソルバー** (twalgor-tw, twalgor-rtw, tamaki-2017, jdrasil, turbocharge-2016, libtw): JDK 8+
+- **Java ソルバー** (twalgor-tw, twalgor-rtw, tamaki-2017, jdrasil, jdrasil-approx, turbocharge-2016, libtw): JDK 8+
 - **C/C++ ソルバー** (tamaki-2016, tdlib-p17, flowcutter-17, flowcutter-16, htd, minfill-mrs, minfillbg-mrs, cvo2, foxepstein-2016, iitm-2016, triangulator, triangulator-msc, treedec, halin-tw, bfk-treewidth-2approx, tamaki-treewidth-sea2019): GCC 7+（C++17 対応の g++）と `make`
   - **treedec** は Boost（graph と thread）、autotools、libtool、Git が必要（Debian/Ubuntu では `sudo apt install libboost-graph-dev libboost-thread-dev autoconf automake libtool`）。依存する gala ヘッダはビルド時に clone します
   - **tdlib-p17** は C++17（ビルド時にインライン変数を挿入します）、Boost、autotools、libtool が必要です（Debian/Ubuntu: `sudo apt install libboost-graph-dev libboost-thread-dev autoconf automake libtool`）
@@ -118,6 +118,7 @@ python run.py --solver all --benchmark all --timeout 60 --max-instances 5
 | iitm-2016 | Joglekar, Kamble, Pandian | C++ | サイクル除去による弦グラフ化（PACE 2016 heuristic track 6 位） |
 | goatd | Guy Van den Broeck | Rust | 消去順序・nested dissection・FlowCutter を一つの時間予算で回すポートフォリオ (2026) |
 | bfk-treewidth-2approx | Jun Kawahara | C++ | Belbasi, Fürer, Kumar (2024) の最適化 2 近似。min-degree の木分解のバッグを、グループ化した木分解上の DP で分割して幅 2·tw+1 以下にする。DP がメモリに収まるのは min-degree の幅が小さいとき（ベンチマークでは 14 以下）だけ |
+| jdrasil-approx | Bannach, Berndt, Ehlers | Java | Jdrasil の近似モード（`jdrasil.Approximation`）。縮約規則と safe separator で分割したあと、各 atom に Robertson–Seymour の FPT 近似をかけ、探索が棄却しなかった最初の k について幅 4k+4 以下の分解を作る。atom で失敗したときに 1 つのバッグで答えるのをやめ、エラーで終わるようにパッチを当てている（`config/jdrasil-approx-fail-loudly.patch`） |
 
 **注**: tamaki-2017, tdlib-p17, jdrasil, arboretum, cliquetrees-jl, libtw, treedec は exact と heuristic の両方に対応しています。
 
@@ -236,6 +237,7 @@ p tw <頂点数> <辺数>
 | halin-tw | MIT | [junkawahara/halin_tw](https://github.com/junkawahara/halin_tw) |
 | bfk-treewidth-2approx | MIT | [junkawahara/bfk-treewidth-2approx](https://github.com/junkawahara/bfk-treewidth-2approx) |
 | tamaki-treewidth-sea2019 | MIT | [junkawahara/tamaki-treewidth-sea2019](https://github.com/junkawahara/tamaki-treewidth-sea2019) |
+| jdrasil-approx | MIT | [maxbannach/Jdrasil](https://github.com/maxbannach/Jdrasil) |
 
 ### ベンチマークのライセンス
 

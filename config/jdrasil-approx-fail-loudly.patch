@@ -1,0 +1,56 @@
+diff --git a/subprojects/core/src/main/java/jdrasil/Approximation.java b/subprojects/core/src/main/java/jdrasil/Approximation.java
+index 652e6a1..cacef72 100644
+--- a/subprojects/core/src/main/java/jdrasil/Approximation.java
++++ b/subprojects/core/src/main/java/jdrasil/Approximation.java
+@@ -71,14 +71,15 @@ public class Approximation {
+ 
+                 // use the separator based decomposer, i.e., split the graph using safe seperators and decompose the atoms
+                 GraphSplitter<Integer> splitter = new GraphSplitter<Integer>(H, atom -> {
+-                    TreeDecomposition<Integer> td;
+-                    try { // use ExactDecomposer to handle atoms
+-                        td = new RobertsonSeymourDecomposer<>(atom).call();
+-                    } catch (Exception e) { // something went wrong, provide trivial decomposition
+-                        td = new TreeDecomposition<>(atom);
+-                        td.createBag(atom.getCopyOfVertices());
++                    try {
++                        return new RobertsonSeymourDecomposer<>(atom).call();
++                    } catch (Exception e) {
++                        // Do not answer with a single bag holding the whole atom: that is a valid
++                        // decomposition, but of width |atom|-1 and without the 4k+4 guarantee, and
++                        // nothing in the output would say so. Abort the run instead.
++                        throw new RuntimeException("the Robertson-Seymour decomposer failed on an atom of "
++                                + atom.getCopyOfVertices().size() + " vertices", e);
+                     }
+-                    return td;
+                 }, lb);
+                 splitter.setTargetConnectivity(GraphSplitter.Connectivity.ATOM);
+ 
+@@ -97,14 +98,22 @@ public class Approximation {
+             LOG.info("");
+ 
+         } catch (IOException e) {
+-            e.printStackTrace();
+-            System.out.println("c Could not read the graph file.");
+-        } catch (Exception e) {
+-            System.out.println("c Error during the computation of the decomposition.");
+-            System.out.println();
+-            e.printStackTrace();
++            fail("could not read the graph", e);
++        } catch (Throwable t) { // also StackOverflowError and OutOfMemoryError
++            fail("error during the computation of the decomposition", t);
+         }
+ 
+     }
+ 
++    /**
++     * Report a failure on stderr and exit with status 1. Upstream printed the message on stdout and exited with
++     * status 0, so a failed run looked like a run that printed no decomposition.
++     */
++    private static void fail(String what, Throwable cause) {
++        System.out.flush();
++        System.err.println("c jdrasil.Approximation: " + what + ": " + cause);
++        cause.printStackTrace();
++        System.exit(1);
++    }
++
+ }
