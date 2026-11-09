@@ -48,3 +48,24 @@ index 8a5b460..05f1ab9 100644
  	}
  }
  
+diff --git a/tree_decomposition.cpp b/tree_decomposition.cpp
+index b03ad3d..8f0b58f 100644
+--- a/tree_decomposition.cpp
++++ b/tree_decomposition.cpp
+@@ -86,9 +86,13 @@ void print_tree_decompostion(const std::string&file_name, ArrayIDIDFunc tail, Ar
+ 				upper_neighborhood_of_z.push_back(y);
+ 			}
+ 		);
+-		upper_neighborhood_of_z.push_back(z);
+-		sort(upper_neighborhood_of_z.begin(), upper_neighborhood_of_z.end());
+-		on_new_potential_maximal_clique(z, move(upper_neighborhood_of_z));
++		// Without edges the callback never runs and z stays -1; upstream then indexed bags_of_node(-1) and
++		// crashed on every edgeless graph with two or more nodes. The loop below gives each such node its own bag.
++		if(z != -1){
++			upper_neighborhood_of_z.push_back(z);
++			sort(upper_neighborhood_of_z.begin(), upper_neighborhood_of_z.end());
++			on_new_potential_maximal_clique(z, move(upper_neighborhood_of_z));
++		}
+ 								
+ 		for(int x=0; x<node_count; ++x){
+ 			if(is_root(x)){
