@@ -1,0 +1,50 @@
+diff --git a/console.cpp b/console.cpp
+index 8a5b460..05f1ab9 100644
+--- a/console.cpp
++++ b/console.cpp
+@@ -858,7 +858,9 @@ vector<Command>cmd = {
+ 		"load_pace_graph", 1,
+ 		"Loads a graph in the PACE 2016 format. All node weights are set to 1.",
+ 		[](vector<string>args){
+-			auto graph = load_pace_graph(args[0]);
++			// The cached loader leaves a binary copy of every graph it reads in $CACHETMPDIR, $TMPDIR or /tmp,
++			// named after the input path, and never removes it. Read the file directly instead.
++			auto graph = uncached_load_pace_graph(args[0]);
+ 			tail = std::move(graph.tail);
+ 			head = std::move(graph.head);
+ 			node_weight = std::move(graph.node_weight);
+@@ -3782,10 +3784,22 @@ vector<Command>cmd = {
+ 				throw runtime_error("Graph must be symmetric");
+ 			const int node_count = tail.image_count();
+ 
+-			if(node_count <= 1)
+-				throw runtime_error("Graph must have at least 2 nodes");
++			// Graphs with fewer than two nodes have only one decomposition: no bag, or one bag with the node.
++			if(node_count <= 1){
++				save_text_file(args[0], [&](std::ostream&out){
++					out << "s td " << node_count << ' ' << node_count << ' ' << node_count << '\n';
++					if(node_count == 1)
++						out << "b 1 1\n";
++				});
++				return;
++			}
+ 
+-			print_tree_decompostion(args[0], tail, head, inverse_permutation(node_original_position));
++			// print_tree_decompostion wants the graph in input node IDs and the order as a map from position to
++			// input node ID (as in the PACE 2017 code). After a reorder, tail and head are in positions and
++			// node_original_position is that map. Upstream passed the permuted graph with the inverse map, which
++			// eliminated the nodes in input order and printed positions as node IDs: any reorder gave an invalid
++			// decomposition, and the order was never used.
++			print_tree_decompostion(args[0], chain(tail, node_original_position), chain(head, node_original_position), node_original_position);
+ 		}
+ 	},
+ 	{
+@@ -4307,6 +4321,8 @@ int main(int argc, char*argv[]){
+ 
+ 	}catch(exception&err){
+ 		cerr << "Exception : " << err.what() << endl;
++		// Upstream fell off the end of main here, so a failed command exited with status 0.
++		return 1;
+ 	}
+ }
+ 

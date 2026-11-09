@@ -14,10 +14,10 @@
 
 ソルバーごとの依存:
 - **Java ソルバー** (twalgor-tw, twalgor-rtw, tamaki-2017, jdrasil, jdrasil-approx, turbocharge-2016, libtw): JDK 8+
-- **C/C++ ソルバー** (tamaki-2016, tdlib-p17, flowcutter-17, flowcutter-16, htd, minfill-mrs, minfillbg-mrs, cvo2, foxepstein-2016, iitm-2016, triangulator, triangulator-msc, treedec, halin-tw, bfk-treewidth-2approx, tamaki-treewidth-sea2019): GCC 7+（C++17 対応の g++）と `make`
+- **C/C++ ソルバー** (tamaki-2016, tdlib-p17, flowcutter-17, flowcutter-16, htd, minfill-mrs, minfillbg-mrs, cvo2, foxepstein-2016, iitm-2016, triangulator, triangulator-msc, treedec, halin-tw, bfk-treewidth-2approx, tamaki-treewidth-sea2019, flowcutter-kahip): GCC 7+（C++17 対応の g++）と `make`
   - **treedec** は Boost（graph と thread）、autotools、libtool、Git が必要（Debian/Ubuntu では `sudo apt install libboost-graph-dev libboost-thread-dev autoconf automake libtool`）。依存する gala ヘッダはビルド時に clone します
   - **tdlib-p17** は C++17（ビルド時にインライン変数を挿入します）、Boost、autotools、libtool が必要です（Debian/Ubuntu: `sudo apt install libboost-graph-dev libboost-thread-dev autoconf automake libtool`）
-  - **htd** と **cvo2** は CMake が必要です（Debian/Ubuntu: `sudo apt install cmake`）
+  - **htd**、**cvo2**、**flowcutter-kahip** は CMake が必要です（Debian/Ubuntu: `sudo apt install cmake`）。**flowcutter-kahip** はビルド時に KaHIP を clone するので Git も必要です
   - **tamaki-treewidth-sea2019** は C++20 が必要です（`-std=c++20`、GCC 10 以上）
 - **QuickBB**: C++11 対応の g++、autotools (autoconf, automake)
 - **Rust ソルバー** (arboretum, goatd): `cargo` を含む Rust ツールチェーン（<https://rustup.rs>）。goatd は Rust 1.88+ と、同梱の FlowCutter をビルドするための C++20 コンパイラ（g++ 12+）が必要です
@@ -119,6 +119,7 @@ python run.py --solver all --benchmark all --timeout 60 --max-instances 5
 | goatd | Guy Van den Broeck | Rust | 消去順序・nested dissection・FlowCutter を一つの時間予算で回すポートフォリオ (2026) |
 | bfk-treewidth-2approx | Jun Kawahara | C++ | Belbasi, Fürer, Kumar (2024) の最適化 2 近似。min-degree の木分解のバッグを、グループ化した木分解上の DP で分割して幅 2·tw+1 以下にする。DP がメモリに収まるのは min-degree の幅が小さいとき（ベンチマークでは 14 以下）だけ |
 | jdrasil-approx | Bannach, Berndt, Ehlers | Java | Jdrasil の近似モード（`jdrasil.Approximation`）。縮約規則と safe separator で分割したあと、各 atom に Robertson–Seymour の FPT 近似をかけ、探索が棄却しなかった最初の k について幅 4k+4 以下の分解を作る。atom で失敗したときに 1 つのバッグで答えるのをやめ、エラーで終わるようにパッチを当てている（`config/jdrasil-approx-fail-loudly.patch`） |
+| flowcutter-kahip | Hamann, Strasser、KaHIP: Sanders, Schulz ら | C++ | FlowCutter の実験用コード（ALENEX 2016）を KaHIP v3.25 付きでビルドしたもの。FlowCutter の CCH 用前処理のあと、KaHIP の頂点分離で nested dissection を行う。計算した順序が実際に使われるようにパッチを当てている（`config/flowcutter-kahip.patch`） |
 
 **注**: tamaki-2017, tdlib-p17, jdrasil, arboretum, cliquetrees-jl, libtw, treedec は exact と heuristic の両方に対応しています。
 
@@ -238,6 +239,7 @@ p tw <頂点数> <辺数>
 | bfk-treewidth-2approx | MIT | [junkawahara/bfk-treewidth-2approx](https://github.com/junkawahara/bfk-treewidth-2approx) |
 | tamaki-treewidth-sea2019 | MIT | [junkawahara/tamaki-treewidth-sea2019](https://github.com/junkawahara/tamaki-treewidth-sea2019) |
 | jdrasil-approx | MIT | [maxbannach/Jdrasil](https://github.com/maxbannach/Jdrasil) |
+| flowcutter-kahip | BSD-3-Clause、KaHIP は MIT | [kit-algo/flow-cutter](https://github.com/kit-algo/flow-cutter)、KaHIP: [KaHIP/KaHIP](https://github.com/KaHIP/KaHIP) |
 
 ### ベンチマークのライセンス
 

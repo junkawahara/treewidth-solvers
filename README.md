@@ -14,10 +14,10 @@ Required:
 
 Per-solver dependencies:
 - **Java solvers** (twalgor-tw, twalgor-rtw, tamaki-2017, jdrasil, jdrasil-approx, turbocharge-2016, libtw): JDK 8+
-- **C/C++ solvers** (tamaki-2016, tdlib-p17, flowcutter-17, flowcutter-16, htd, minfill-mrs, minfillbg-mrs, cvo2, foxepstein-2016, iitm-2016, triangulator, triangulator-msc, treedec, halin-tw, bfk-treewidth-2approx, tamaki-treewidth-sea2019): GCC 7+ (g++ with C++17 support) and `make`
+- **C/C++ solvers** (tamaki-2016, tdlib-p17, flowcutter-17, flowcutter-16, htd, minfill-mrs, minfillbg-mrs, cvo2, foxepstein-2016, iitm-2016, triangulator, triangulator-msc, treedec, halin-tw, bfk-treewidth-2approx, tamaki-treewidth-sea2019, flowcutter-kahip): GCC 7+ (g++ with C++17 support) and `make`
   - **treedec** needs Boost (graph and thread), autotools, libtool and Git (`sudo apt install libboost-graph-dev libboost-thread-dev autoconf automake libtool` on Debian/Ubuntu); its gala header dependency is cloned by the build
   - **tdlib-p17** needs C++17 (the build inserts an inline variable), Boost, autotools and libtool (`sudo apt install libboost-graph-dev libboost-thread-dev autoconf automake libtool` on Debian/Ubuntu)
-  - **htd** and **cvo2** require CMake (`sudo apt install cmake` on Debian/Ubuntu)
+  - **htd**, **cvo2** and **flowcutter-kahip** require CMake (`sudo apt install cmake` on Debian/Ubuntu); **flowcutter-kahip** also needs Git, as its build clones KaHIP
   - **tamaki-treewidth-sea2019** needs C++20 (`-std=c++20`, GCC 10+)
 - **QuickBB**: g++ with C++11 support, autotools (autoconf, automake)
 - **Rust solvers** (arboretum, goatd): a Rust toolchain with `cargo` (<https://rustup.rs>); goatd needs Rust 1.88+ and a C++20 compiler (g++ 12+) for its vendored FlowCutter
@@ -119,6 +119,7 @@ Results are appended to the CSV as each run finishes, so an interrupted run (Ctr
 | goatd | Guy Van den Broeck | Rust | Portfolio of elimination orders, nested dissection and FlowCutter under one budget (2026) |
 | bfk-treewidth-2approx | Jun Kawahara | C++ | The optimized 2-approximation of Belbasi, Fürer and Kumar (2024): dynamic programming over a grouped tree decomposition that splits the bags of a min-degree decomposition, giving width ≤ 2·tw+1; the DP fits in memory only when the min-degree width is small (at most 14 on the benchmarks) |
 | jdrasil-approx | Bannach, Berndt, Ehlers | Java | Jdrasil's approximation mode (`jdrasil.Approximation`): reduction rules and safe-separator splitting, then the Robertson-Seymour FPT approximation on each atom, giving width ≤ 4k+4 for the first k its search does not reject; patched to fail instead of answering a failed atom with one bag (`config/jdrasil-approx-fail-loudly.patch`) |
+| flowcutter-kahip | Hamann, Strasser; KaHIP: Sanders, Schulz et al. | C++ | FlowCutter's experimental code (ALENEX 2016) built with KaHIP v3.25: nested dissection with KaHIP's node separator after FlowCutter's CCH preprocessing; patched so that the order is actually used (`config/flowcutter-kahip.patch`) |
 
 **Note**: tamaki-2017, tdlib-p17, jdrasil, arboretum, cliquetrees-jl, libtw and treedec support both exact and heuristic modes.
 
@@ -238,6 +239,7 @@ This repository does not redistribute any solver or benchmark source code. All e
 | bfk-treewidth-2approx | MIT | [junkawahara/bfk-treewidth-2approx](https://github.com/junkawahara/bfk-treewidth-2approx) |
 | tamaki-treewidth-sea2019 | MIT | [junkawahara/tamaki-treewidth-sea2019](https://github.com/junkawahara/tamaki-treewidth-sea2019) |
 | jdrasil-approx | MIT | [maxbannach/Jdrasil](https://github.com/maxbannach/Jdrasil) |
+| flowcutter-kahip | BSD-3-Clause; KaHIP: MIT | [kit-algo/flow-cutter](https://github.com/kit-algo/flow-cutter); KaHIP: [KaHIP/KaHIP](https://github.com/KaHIP/KaHIP) |
 
 ### Benchmark Licenses
 
