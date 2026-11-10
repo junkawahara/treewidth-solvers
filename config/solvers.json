@@ -134,11 +134,12 @@
     "run_command": "java -cp build/jars/Jdrasil.jar jdrasil.Exact < {input}",
     "run_command_heuristic": "java -cp build/jars/Jdrasil.jar jdrasil.Heuristic < {input}",
     "run_mode": "stdin_stdout_signal",
-    "input_format": "pace_gr",
+    "input_format": "pace_gr_simple",
     "output_format": "pace_td",
     "authors": "Max Bannach, Sebastian Berndt, Thorsten Ehlers",
     "pace_year": 2017,
-    "description": "Modular treewidth solver framework"
+    "description": "Modular treewidth solver framework",
+    "notes": "Fed pace_gr_simple in both modes. Jdrasil's .gr reader passes every edge line to addEdge without checking u == v (GraphFactory.java:119), so a self-loop makes the vertex its own neighbour, which the rest of the code does not expect. Only the transit graphs have self-loops (1378 of 3133 files). On those 1378 (60 s, --validate, 8 jobs, -Xmx3g per run), the unchanged files gave in exact mode 597 ok, 11 invalid, 320 parse_error (an exception, printed as 'c Error during the computation of the decomposition.' on stdout with exit 0) and 450 timeouts. 99 of the 597 ok answers were wider than the treewidth, by 1 to 6: on all 99 the cleaned run's width matched tamaki-2017's. 25 more came within 60 s while the cleaned run and tamaki-2017 both timed out, so they could not be checked. With pace_gr_simple: 648 ok (all valid) and 730 timeouts. In heuristic mode (10 s) the unchanged files gave 1353 parse_error (on fredericton-transit_20130313_1626 a RuntimeException in Graph.eliminateVertex; the exact mode threw a NullPointerException in GraphReducer there) and 25 ok, the cleaned ones 1378 ok. The reader already skipped comments and blank lines and ignored repeated edges, so every other file gives the same graph, with its edges in sorted order."
   },
   {
     "name": "quickbb",
